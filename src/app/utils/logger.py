@@ -26,7 +26,7 @@ _CONSOLE_FORMAT = "%(levelname)-8s | %(message)s"
 _DEFAULT_LOG_DIR = Path("data/logs")
 _LOG_FILENAME = "app.log"
 _MAX_BYTES = 1_000_000  # ~1 MB per file before rollover
-_BACKUP_COUNT = 3       # keep app.log plus three rolled-over copies
+_BACKUP_COUNT = 3  # keep app.log plus three rolled-over copies
 
 
 def setup_logging(

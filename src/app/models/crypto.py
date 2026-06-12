@@ -45,9 +45,7 @@ class CryptoPrice:
         if not self.symbol:
             raise ValueError("symbol must be a non-empty string")
         if self.price_usd < 0:
-            raise ValueError(
-                f"price_usd must be non-negative, got {self.price_usd}"
-            )
+            raise ValueError(f"price_usd must be non-negative, got {self.price_usd}")
         if self.price_toman < 0:
             raise ValueError(
                 f"price_toman must be non-negative, got {self.price_toman}"
