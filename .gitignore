@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Secrets & Configuration
+.env
+!.env.example
+
+# Project Runtime Data (Ignore contents, keep folders via .gitkeep later)
+data/cache/*
+data/settings/*
+data/history/*
+data/logs/*
+!data/**/.gitkeep
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Tools Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
