@@ -59,15 +59,11 @@ class Match:
         if self.away_score is not None and self.away_score < 0:
             raise ValueError("away_score must be non-negative")
 
-        has_scores = (
-            self.home_score is not None and self.away_score is not None
-        )
+        has_scores = self.home_score is not None and self.away_score is not None
         if self.status is MatchStatus.SCHEDULED and has_scores:
             raise ValueError("a SCHEDULED match cannot have scores")
         if self.status is not MatchStatus.SCHEDULED and not has_scores:
-            raise ValueError(
-                f"a {self.status.name} match must have both scores"
-            )
+            raise ValueError(f"a {self.status.name} match must have both scores")
 
 
 @dataclass(frozen=True, slots=True)
