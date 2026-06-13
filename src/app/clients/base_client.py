@@ -67,18 +67,12 @@ class BaseAPIClient:
         url = f"{self._base_url}/{path.lstrip('/')}"
         logger.debug("GET %s", url)  # never log params/headers: secrets
         try:
-            response = self._session.get(
-                url, params=params, timeout=self._timeout
-            )
+            response = self._session.get(url, params=params, timeout=self._timeout)
             response.raise_for_status()
         except requests.Timeout as exc:
             raise APIError(f"request to {url} timed out") from exc
         except requests.HTTPError as exc:
-            status = (
-                exc.response.status_code
-                if exc.response is not None
-                else "unknown"
-            )
+            status = exc.response.status_code if exc.response is not None else "unknown"
             raise APIError(
                 f"request to {url} failed with HTTP status {status}"
             ) from exc

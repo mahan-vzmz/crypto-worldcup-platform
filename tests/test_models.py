@@ -1,7 +1,7 @@
-"""Tests for the domain models: invariants, happy paths, immutability.
+"""Tests for the domain models: invariants, happy paths, immutability (#24).
 
-These tests need no mocks, filesystem, or network -- models are the
-innermost layer and depend only on the standard library.
+No mocks, filesystem, or network -- models are the innermost layer and
+depend only on the standard library.
 """
 
 from dataclasses import FrozenInstanceError, replace
@@ -16,8 +16,22 @@ NOW = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
 NAIVE_NOW = datetime(2026, 6, 12, 12, 0)
 
 
+def make_price(**overrides: object) -> CryptoPrice:
+    """Build a valid CryptoPrice; tests override only what they probe."""
+    defaults: dict[str, object] = {
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "price_usd": 65_000.0,
+        "price_toman": 4_500_000_000.0,
+        "change_24h": 2.5,
+        "last_updated": NOW,
+    }
+    defaults.update(overrides)
+    return CryptoPrice(**defaults)  # type: ignore[arg-type]
+
+
 def make_match(**overrides: object) -> Match:
-    """Build a valid FINISHED match; tests override only what they probe."""
+    """Build a valid FINISHED match; tests override only the deviation."""
     defaults: dict[str, object] = {
         "home_team": Team(name="Iran", code="IRN"),
         "away_team": Team(name="Spain", code="ESP"),
@@ -38,56 +52,44 @@ class TestCoinEnum:
         assert Coin.SOL.full_name == "Solana"
 
     def test_scope_is_exactly_three_coins(self) -> None:
-        assert {coin.symbol for coin in Coin} == {"BTC", "ETH", "SOL"}
+        assert {c.symbol for c in Coin} == {"BTC", "ETH", "SOL"}
 
 
 class TestCryptoPrice:
-    def make_price(self, **overrides: object) -> CryptoPrice:
-        defaults: dict[str, object] = {
-            "symbol": "BTC",
-            "name": "Bitcoin",
-            "price_usd": 65_000.0,
-            "price_toman": 4_500_000_000.0,
-            "change_24h": 2.5,
-            "last_updated": NOW,
-        }
-        defaults.update(overrides)
-        return CryptoPrice(**defaults)  # type: ignore[arg-type]
-
     def test_happy_path_construction(self) -> None:
-        price = self.make_price()
+        price = make_price()
         assert price.symbol == "BTC"
         assert price.price_usd == 65_000.0
 
     def test_negative_change_is_valid(self) -> None:
-        assert self.make_price(change_24h=-3.2).change_24h == -3.2
+        assert make_price(change_24h=-3.2).change_24h == -3.2
 
     def test_negative_price_usd_raises(self) -> None:
         with pytest.raises(ValueError):
-            self.make_price(price_usd=-10.0)
+            make_price(price_usd=-10.0)
 
     def test_negative_price_toman_raises(self) -> None:
         with pytest.raises(ValueError):
-            self.make_price(price_toman=-1.0)
+            make_price(price_toman=-1.0)
 
     def test_empty_symbol_raises(self) -> None:
         with pytest.raises(ValueError):
-            self.make_price(symbol="")
+            make_price(symbol="")
 
     def test_naive_datetime_raises(self) -> None:
         with pytest.raises(ValueError):
-            self.make_price(last_updated=NAIVE_NOW)
+            make_price(last_updated=NAIVE_NOW)
 
     def test_mutation_raises(self) -> None:
-        price = self.make_price()
+        price = make_price()
         with pytest.raises(FrozenInstanceError):
             price.price_usd = 200.0  # type: ignore[misc]
 
     def test_replace_creates_new_valid_object(self) -> None:
-        original = self.make_price()
+        original = make_price()
         updated = replace(original, price_usd=70_000.0)
         assert updated.price_usd == 70_000.0
-        assert original.price_usd == 65_000.0  # original untouched
+        assert original.price_usd == 65_000.0
 
 
 class TestTeam:
