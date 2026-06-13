@@ -6,6 +6,7 @@ The BaseRepository ABC is what makes the fake repository a drop-in.
 """
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,13 +17,15 @@ from app.services.crypto_service import CACHE_KEY, CryptoService
 from app.storage.base_repository import BaseRepository
 from app.utils.exceptions import APIError
 
-from pathlib import Path
-
 SETTINGS = Settings(
     data_dir=Path("dummy_dir"),
     crypto_api_key="dummy_crypto",
     football_api_key="dummy_football",
-    cache_ttl_seconds=300
+    cache_ttl_seconds=300,
+<<<<<<< ours
+=======
+    usd_to_toman_rate=90_000.0,
+>>>>>>> theirs
 )
 COINS = [Coin.BTC]
 

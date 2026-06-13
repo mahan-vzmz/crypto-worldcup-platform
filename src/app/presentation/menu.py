@@ -44,9 +44,7 @@ class Menu:
         """Main loop. Returns when the user chooses to quit."""
         self._console.print(Panel(_MENU, border_style="magenta", expand=False))
         while True:
-            choice = Prompt.ask(
-                "Select", choices=["1", "2", "3", "q"], default="q"
-            )
+            choice = Prompt.ask("Select", choices=["1", "2", "3", "q"], default="q")
             if choice == "q":
                 self._console.print("[dim]Goodbye.[/dim]")
                 return
@@ -72,9 +70,7 @@ class Menu:
         self._console.print(render_prices(prices))
 
     def _show_single_coin(self) -> None:
-        symbol = Prompt.ask(
-            "Coin", choices=[c.symbol for c in Coin]
-        )
+        symbol = Prompt.ask("Coin", choices=[c.symbol for c in Coin])
         coin = next(c for c in Coin if c.symbol == symbol)
         prices = self._crypto.get_prices([coin])
         self._console.print(render_prices(prices))

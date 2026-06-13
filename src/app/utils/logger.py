@@ -85,6 +85,5 @@ def get_logger(name: str) -> logging.Logger:
 
     Returns:
         A configured ``logging.Logger`` instance.
-    ```
     """
     return logging.getLogger(name)
