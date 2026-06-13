@@ -1,7 +1,58 @@
 # Changelog
 
-## [Unreleased]
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] — 2026-06-14
+
+First stable release. A Python 3.12 terminal application delivering live
+cryptocurrency prices (BTC, ETH, SOL) and football tournament data through a
+clean, layered, offline-first architecture. All milestones M0–M7 complete;
+every clause of the V1 Definition of Done met and verified end-to-end,
+including the offline-fallback path against a disconnected network.
+
 ### Added
-- Project scaffolding and directory structure.
-- Centralized configuration and tooling setup via `pyproject.toml`.
-- Comprehensive `.gitignore` and `CONTRIBUTING` guidelines.
+
+- **Domain models** — frozen, validated dataclasses: a `Coin` enum and
+  `CryptoPrice`; `Team`, `Match`, `Tournament`, and a `MatchStatus` enum. Value
+  objects whose invariants are enforced at construction (e.g. scores exist iff a
+  match has started; timestamps must be timezone-aware).
+- **Storage layer** — a `BaseRepository` abstraction (the migration seam) with a
+  `JSONRepository` implementation: atomic writes via temp file + `os.replace`, a
+  `{fetched_at, schema_version, data}` envelope, and key-safety validation.
+- **API clients** — a shared `BaseAPIClient` (session reuse, explicit
+  connect/read timeouts, exponential-backoff retries on idempotent requests) and
+  two adapters: CoinGecko (crypto) and Football-Data.org (football). Each maps
+  raw API JSON into typed domain models — an anti-corruption layer — and
+  validates its API key at point of use.
+- **Service layer** — crypto and football services implementing cache-then-fetch
+  with TTL staleness and offline fallback; client and repository injected via the
+  constructor; deserialization re-validates cached data through the models.
+- **Presentation layer** — `rich` renderers (pure formatting) and an interactive
+  CLI menu that dispatches to services and catches application errors at the
+  boundary, so the user never sees a raw traceback.
+- **Composition root** — `main.py` wires every layer in dependency order
+  (settings → directories → logging → data → services → menu) and degrades
+  gracefully when the football API key is absent.
+- **Foundations** — environment-based frozen `Settings` loader, a custom
+  `AppError` exception hierarchy with boundary translation, and centralized
+  rotating-file + console logging.
+- **Configuration** — `USD_TO_TOMAN_RATE` setting added to support the ADR-005
+  conversion with a configurable fallback rate.
+- **Tests** — 41 passing across model invariants, the JSON repository (real
+  temporary-directory fixture), and all four service orchestration branches
+  (fresh / stale / offline-fallback / total-failure) using in-memory fakes. No
+  test touches a live API or the real filesystem outside its fixture.
+- **Documentation** — production README, architecture document with ten ADRs and
+  a technical-debt register, completed taskbook, and V1 release notes.
+
+### Notes
+
+- **Tooling gates green at release:** `ruff` clean, `mypy --strict` passing,
+  `pytest` all green.
+- **Known debt** is tracked openly in `docs/architecture.md` §8 (TD-01 through
+  TD-10), led by the planned V2 SQLite migration behind the existing repository
+  interface.
+
+[1.0.0]: https://github.com/your-org/crypto-worldcup-platform/releases/tag/v1.0.0

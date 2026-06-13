@@ -22,7 +22,7 @@ SETTINGS = Settings(
     data_dir=Path("dummy_dir"),
     crypto_api_key="dummy_crypto",
     football_api_key="dummy_football",
-    cache_ttl_seconds=300
+    cache_ttl_seconds=300,
 )
 COINS = [Coin.BTC]
 

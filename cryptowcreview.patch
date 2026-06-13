@@ -1,0 +1,424 @@
+From a5e4e2254116a46227b0ff3d114128d5d05370ab Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 13 Jun 2026 21:35:18 +0000
+Subject: [PATCH] fix: add missing usd_to_toman_rate to Settings; refactor
+ cache policy
+
+The composition root read settings.usd_to_toman_rate, but the field was
+never added to Settings, so the app crashed at startup with a raw
+AttributeError (caught by mypy and a live run). Add the field, parse and
+validate USD_TO_TOMAN_RATE from the environment with a clearly-approximate
+fallback (ADR-005 / TD-04).
+
+Also:
+- extract the duplicated TTL freshness check from both services into a
+  shared services/cache_policy.is_fresh helper
+- add tests/test_config.py covering Settings.from_env defaults, overrides,
+  validation, and directory creation (the gap that let this bug ship)
+- sync .env.example with documented variables; drop the unused API_ENV
+- remove a stray code fence in the logger docstring
+- fix import ordering in test_services.py (ruff)
+
+https://claude.ai/code/session_01VqntLpuy6RCbwfPZeMi68S
+---
+ .env.example                         |  16 +++-
+ src/app/config/settings.py           |  25 +++++-
+ src/app/services/cache_policy.py     |  26 +++++++
+ src/app/services/crypto_service.py   |  23 ++----
+ src/app/services/football_service.py |  22 ++----
+ src/app/utils/logger.py              |   1 -
+ tests/test_config.py                 | 112 +++++++++++++++++++++++++++
+ tests/test_services.py               |   6 +-
+ 8 files changed, 187 insertions(+), 44 deletions(-)
+ create mode 100644 src/app/services/cache_policy.py
+ create mode 100644 tests/test_config.py
+
+diff --git a/.env.example b/.env.example
+index 5545a0b..7bb41b7 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,7 +1,15 @@
+-# Core Settings
+-API_ENV=development
++# Copy to .env and adjust. All values are optional; sensible defaults apply.
++# The .env file is gitignored — never commit real secrets.
++
++# Runtime data directory (cache, logs, settings, history).
+ DATA_DIR=data
+ 
+-# API Keys (To be filled in Phase 4)
++# Freshness window, in seconds, before cached API data is refetched.
++CACHE_TTL_SECONDS=300
++
++# Approximate USD->Toman conversion rate (see ADR-005 / TD-04).
++USD_TO_TOMAN_RATE=90000
++
++# API Keys. Crypto works without a key; football degrades gracefully if unset.
+ CRYPTO_API_KEY=
+-FOOTBALL_API_KEY=
+\ No newline at end of file
++FOOTBALL_API_KEY=
+diff --git a/src/app/config/settings.py b/src/app/config/settings.py
+index 24372b4..56f9afd 100644
+--- a/src/app/config/settings.py
++++ b/src/app/config/settings.py
+@@ -23,6 +23,10 @@ from app.utils.exceptions import ConfigError
+ 
+ _DEFAULT_DATA_DIR = "data"
+ _DEFAULT_CACHE_TTL_SECONDS = 300
++#: Approximate USD->Toman fallback rate (ADR-005 / TD-04). Deliberately a
++#: static, clearly-approximate default; the environment overrides it, and a
++#: proper rate source is deferred to a future version.
++_DEFAULT_USD_TO_TOMAN_RATE = 90_000.0
+ 
+ 
+ @dataclass(frozen=True)
+@@ -32,6 +36,9 @@ class Settings:
+     Attributes:
+         data_dir: Root directory for all runtime data (cache, logs, etc.).
+         cache_ttl_seconds: How long cached API data is considered fresh.
++        usd_to_toman_rate: USD->Toman conversion rate used to derive the Toman
++            price (ADR-005 / TD-04). A clearly-approximate fallback that the
++            environment may override.
+         crypto_api_key: API key for the cryptocurrency provider. May be empty in
+             Version 1 until the client is implemented (Milestone M4).
+         football_api_key: API key for the football provider. May be empty until
+@@ -40,6 +47,7 @@ class Settings:
+ 
+     data_dir: Path
+     cache_ttl_seconds: int
++    usd_to_toman_rate: float
+     crypto_api_key: str
+     football_api_key: str
+ 
+@@ -76,7 +84,8 @@ class Settings:
+ 
+         Raises:
+             ConfigError: If ``CACHE_TTL_SECONDS`` is set but not a positive
+-                integer.
++                integer, or ``USD_TO_TOMAN_RATE`` is set but not a positive
++                number.
+         """
+         load_dotenv()
+ 
+@@ -95,9 +104,23 @@ class Settings:
+                 f"CACHE_TTL_SECONDS must be positive, got {cache_ttl_seconds}."
+             )
+ 
++        raw_rate = os.getenv("USD_TO_TOMAN_RATE", str(_DEFAULT_USD_TO_TOMAN_RATE))
++        try:
++            usd_to_toman_rate = float(raw_rate)
++        except ValueError as exc:
++            raise ConfigError(
++                f"USD_TO_TOMAN_RATE must be a number, got {raw_rate!r}."
++            ) from exc
++
++        if usd_to_toman_rate <= 0:
++            raise ConfigError(
++                f"USD_TO_TOMAN_RATE must be positive, got {usd_to_toman_rate}."
++            )
++
+         return cls(
+             data_dir=data_dir,
+             cache_ttl_seconds=cache_ttl_seconds,
++            usd_to_toman_rate=usd_to_toman_rate,
+             crypto_api_key=os.getenv("CRYPTO_API_KEY", ""),
+             football_api_key=os.getenv("FOOTBALL_API_KEY", ""),
+         )
+diff --git a/src/app/services/cache_policy.py b/src/app/services/cache_policy.py
+new file mode 100644
+index 0000000..e3b009d
+--- /dev/null
++++ b/src/app/services/cache_policy.py
+@@ -0,0 +1,26 @@
++"""Shared cache-freshness policy for the service layer.
++
++Both services apply the identical TTL rule (ADR-006): a cache envelope is
++fresh while its ``fetched_at`` timestamp is within the configured window.
++Keeping the rule in one place means the crypto and football services cannot
++drift apart in how they judge freshness.
++"""
++
++from datetime import UTC, datetime, timedelta
++from typing import Any
++
++
++def is_fresh(envelope: dict[str, Any], ttl_seconds: int) -> bool:
++    """Return whether *envelope* is within *ttl_seconds* of now.
++
++    A missing or unparseable ``fetched_at`` is treated as stale: that is the
++    safe default, since it forces a refetch rather than trusting unknown data.
++    """
++    raw = envelope.get("fetched_at")
++    if not isinstance(raw, str):
++        return False
++    try:
++        fetched_at = datetime.fromisoformat(raw)
++    except ValueError:
++        return False
++    return datetime.now(UTC) - fetched_at <= timedelta(seconds=ttl_seconds)
+diff --git a/src/app/services/crypto_service.py b/src/app/services/crypto_service.py
+index 37a870c..79f3ebc 100644
+--- a/src/app/services/crypto_service.py
++++ b/src/app/services/crypto_service.py
+@@ -6,12 +6,13 @@ abstractions (BaseRepository) injected via the constructor, so it is
+ testable with fakes and no network or filesystem.
+ """
+ 
+-from datetime import UTC, datetime, timedelta
++from datetime import datetime
+ from typing import Any
+ 
+ from app.clients.crypto_client import CryptoClient
+ from app.config.settings import Settings
+ from app.models.crypto import Coin, CryptoPrice
++from app.services.cache_policy import is_fresh
+ from app.storage.base_repository import BaseRepository
+ from app.utils.exceptions import APIError
+ from app.utils.logger import get_logger
+@@ -42,7 +43,9 @@ class CryptoService:
+         """
+         envelope = self._repository.load(CACHE_KEY)
+ 
+-        if envelope is not None and self._is_fresh(envelope):
++        if envelope is not None and is_fresh(
++            envelope, self._settings.cache_ttl_seconds
++        ):
+             logger.debug("crypto cache hit (fresh)")
+             return self._deserialize(envelope["data"])
+ 
+@@ -59,22 +62,6 @@ class CryptoService:
+         logger.debug("crypto cache refreshed from API")
+         return prices
+ 
+-    def _is_fresh(self, envelope: dict[str, Any]) -> bool:
+-        """True if the cache timestamp is within the configured TTL.
+-
+-        A missing or unparseable timestamp is treated as stale (safe:
+-        it forces a refetch rather than trusting unknown data).
+-        """
+-        raw = envelope.get("fetched_at")
+-        if not isinstance(raw, str):
+-            return False
+-        try:
+-            fetched_at = datetime.fromisoformat(raw)
+-        except ValueError:
+-            return False
+-        ttl = timedelta(seconds=self._settings.cache_ttl_seconds)
+-        return datetime.now(UTC) - fetched_at <= ttl
+-
+     @staticmethod
+     def _serialize(prices: list[CryptoPrice]) -> dict[str, Any]:
+         """Map domain models to a JSON-safe payload (datetime -> ISO)."""
+diff --git a/src/app/services/football_service.py b/src/app/services/football_service.py
+index 1a48022..1c0d9d1 100644
+--- a/src/app/services/football_service.py
++++ b/src/app/services/football_service.py
+@@ -6,12 +6,13 @@ an enum, and optional scores, so the mappers are correspondingly larger
+ -- but the decision tree is identical.
+ """
+ 
+-from datetime import UTC, datetime, timedelta
++from datetime import datetime
+ from typing import Any
+ 
+ from app.clients.football_client import FootballClient
+ from app.config.settings import Settings
+ from app.models.football import Match, MatchStatus, Team, Tournament
++from app.services.cache_policy import is_fresh
+ from app.storage.base_repository import BaseRepository
+ from app.utils.exceptions import APIError
+ from app.utils.logger import get_logger
+@@ -42,7 +43,9 @@ class FootballService:
+         """
+         envelope = self._repository.load(CACHE_KEY)
+ 
+-        if envelope is not None and self._is_fresh(envelope):
++        if envelope is not None and is_fresh(
++            envelope, self._settings.cache_ttl_seconds
++        ):
+             logger.debug("football cache hit (fresh)")
+             return self._deserialize(envelope["data"])
+ 
+@@ -59,21 +62,6 @@ class FootballService:
+         logger.debug("football cache refreshed from API")
+         return tournament
+ 
+-    def _is_fresh(self, envelope: dict[str, Any]) -> bool:
+-        """True if the cache timestamp is within the configured TTL.
+-
+-        A missing or unparseable timestamp is treated as stale.
+-        """
+-        raw = envelope.get("fetched_at")
+-        if not isinstance(raw, str):
+-            return False
+-        try:
+-            fetched_at = datetime.fromisoformat(raw)
+-        except ValueError:
+-            return False
+-        ttl = timedelta(seconds=self._settings.cache_ttl_seconds)
+-        return datetime.now(UTC) - fetched_at <= ttl
+-
+     @staticmethod
+     def _serialize(tournament: Tournament) -> dict[str, Any]:
+         """Map a Tournament to a JSON-safe payload."""
+diff --git a/src/app/utils/logger.py b/src/app/utils/logger.py
+index b642047..cf4a39d 100644
+--- a/src/app/utils/logger.py
++++ b/src/app/utils/logger.py
+@@ -85,6 +85,5 @@ def get_logger(name: str) -> logging.Logger:
+ 
+     Returns:
+         A configured ``logging.Logger`` instance.
+-    ```
+     """
+     return logging.getLogger(name)
+diff --git a/tests/test_config.py b/tests/test_config.py
+new file mode 100644
+index 0000000..048b276
+--- /dev/null
++++ b/tests/test_config.py
+@@ -0,0 +1,112 @@
++"""Tests for the configuration layer (Settings.from_env).
++
++Each test isolates the environment with monkeypatch so no real ``.env`` or
++ambient variable can leak in. These guard the composition root's contract:
++every field main.py reads must exist and validate.
++"""
++
++from pathlib import Path
++
++import pytest
++
++from app.config.settings import Settings
++from app.utils.exceptions import ConfigError
++
++# Variables from_env reads; cleared before each test for a known baseline.
++_ENV_VARS = (
++    "DATA_DIR",
++    "CACHE_TTL_SECONDS",
++    "USD_TO_TOMAN_RATE",
++    "CRYPTO_API_KEY",
++    "FOOTBALL_API_KEY",
++)
++
++
++@pytest.fixture
++def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
++    for var in _ENV_VARS:
++        monkeypatch.delenv(var, raising=False)
++
++
++class TestDefaults:
++    def test_defaults_applied_when_env_empty(self, clean_env: None) -> None:
++        settings = Settings.from_env()
++        assert settings.data_dir == Path("data")
++        assert settings.cache_ttl_seconds == 300
++        assert settings.usd_to_toman_rate > 0
++        assert settings.crypto_api_key == ""
++        assert settings.football_api_key == ""
++
++    def test_every_field_main_reads_is_present(self, clean_env: None) -> None:
++        # Regression guard: main.py wires these exact attributes.
++        settings = Settings.from_env()
++        for attr in ("usd_to_toman_rate", "cache_ttl_seconds", "data_dir"):
++            assert hasattr(settings, attr)
++
++
++class TestOverrides:
++    def test_env_overrides_are_parsed(
++        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setenv("DATA_DIR", "/tmp/custom")
++        monkeypatch.setenv("CACHE_TTL_SECONDS", "60")
++        monkeypatch.setenv("USD_TO_TOMAN_RATE", "100000.5")
++        monkeypatch.setenv("CRYPTO_API_KEY", "ck")
++        monkeypatch.setenv("FOOTBALL_API_KEY", "fk")
++
++        settings = Settings.from_env()
++
++        assert settings.data_dir == Path("/tmp/custom")
++        assert settings.cache_ttl_seconds == 60
++        assert settings.usd_to_toman_rate == 100000.5
++        assert settings.crypto_api_key == "ck"
++        assert settings.football_api_key == "fk"
++
++
++class TestValidation:
++    @pytest.mark.parametrize("bad", ["abc", "1.5"])
++    def test_non_integer_ttl_raises(
++        self, clean_env: None, monkeypatch: pytest.MonkeyPatch, bad: str
++    ) -> None:
++        monkeypatch.setenv("CACHE_TTL_SECONDS", bad)
++        with pytest.raises(ConfigError):
++            Settings.from_env()
++
++    @pytest.mark.parametrize("bad", ["0", "-1"])
++    def test_non_positive_ttl_raises(
++        self, clean_env: None, monkeypatch: pytest.MonkeyPatch, bad: str
++    ) -> None:
++        monkeypatch.setenv("CACHE_TTL_SECONDS", bad)
++        with pytest.raises(ConfigError):
++            Settings.from_env()
++
++    def test_non_numeric_rate_raises(
++        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        monkeypatch.setenv("USD_TO_TOMAN_RATE", "free")
++        with pytest.raises(ConfigError):
++            Settings.from_env()
++
++    @pytest.mark.parametrize("bad", ["0", "-50000"])
++    def test_non_positive_rate_raises(
++        self, clean_env: None, monkeypatch: pytest.MonkeyPatch, bad: str
++    ) -> None:
++        monkeypatch.setenv("USD_TO_TOMAN_RATE", bad)
++        with pytest.raises(ConfigError):
++            Settings.from_env()
++
++
++class TestDirectories:
++    def test_ensure_directories_creates_all(self, tmp_path: Path) -> None:
++        settings = Settings(
++            data_dir=tmp_path / "data",
++            cache_ttl_seconds=300,
++            usd_to_toman_rate=90_000.0,
++            crypto_api_key="",
++            football_api_key="",
++        )
++        settings.ensure_directories()
++        assert settings.cache_dir.is_dir()
++        assert settings.settings_dir.is_dir()
++        assert settings.history_dir.is_dir()
++        assert settings.logs_dir.is_dir()
+diff --git a/tests/test_services.py b/tests/test_services.py
+index 12aa06f..ddefc48 100644
+--- a/tests/test_services.py
++++ b/tests/test_services.py
+@@ -6,6 +6,7 @@ The BaseRepository ABC is what makes the fake repository a drop-in.
+ """
+ 
+ from datetime import UTC, datetime, timedelta
++from pathlib import Path
+ from typing import Any
+ 
+ import pytest
+@@ -16,13 +17,12 @@ from app.services.crypto_service import CACHE_KEY, CryptoService
+ from app.storage.base_repository import BaseRepository
+ from app.utils.exceptions import APIError
+ 
+-from pathlib import Path
+-
+ SETTINGS = Settings(
+     data_dir=Path("dummy_dir"),
+     crypto_api_key="dummy_crypto",
+     football_api_key="dummy_football",
+-    cache_ttl_seconds=300
++    cache_ttl_seconds=300,
++    usd_to_toman_rate=90_000.0,
+ )
+ COINS = [Coin.BTC]
+ 
+-- 
+2.43.0
+

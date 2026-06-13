@@ -81,9 +81,7 @@ class _UnavailableFootballClient:
     """Stand-in used when no football key is configured."""
 
     def fetch_world_cup(self):  # type: ignore[no-untyped-def]
-        raise ConfigError(
-            "FOOTBALL_API_KEY is not set; football data is unavailable"
-        )
+        raise ConfigError("FOOTBALL_API_KEY is not set; football data is unavailable")
 
 
 if __name__ == "__main__":
