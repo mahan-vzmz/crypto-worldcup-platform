@@ -6,12 +6,13 @@ an enum, and optional scores, so the mappers are correspondingly larger
 -- but the decision tree is identical.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from app.clients.football_client import FootballClient
 from app.config.settings import Settings
 from app.models.football import Match, MatchStatus, Team, Tournament
+from app.services.cache_policy import is_fresh
 from app.storage.base_repository import BaseRepository
 from app.utils.exceptions import APIError
 from app.utils.logger import get_logger
@@ -42,7 +43,9 @@ class FootballService:
         """
         envelope = self._repository.load(CACHE_KEY)
 
-        if envelope is not None and self._is_fresh(envelope):
+        if envelope is not None and is_fresh(
+            envelope, self._settings.cache_ttl_seconds
+        ):
             logger.debug("football cache hit (fresh)")
             return self._deserialize(envelope["data"])
 
@@ -58,21 +61,6 @@ class FootballService:
         self._repository.save(CACHE_KEY, self._serialize(tournament))
         logger.debug("football cache refreshed from API")
         return tournament
-
-    def _is_fresh(self, envelope: dict[str, Any]) -> bool:
-        """True if the cache timestamp is within the configured TTL.
-
-        A missing or unparseable timestamp is treated as stale.
-        """
-        raw = envelope.get("fetched_at")
-        if not isinstance(raw, str):
-            return False
-        try:
-            fetched_at = datetime.fromisoformat(raw)
-        except ValueError:
-            return False
-        ttl = timedelta(seconds=self._settings.cache_ttl_seconds)
-        return datetime.now(UTC) - fetched_at <= ttl
 
     @staticmethod
     def _serialize(tournament: Tournament) -> dict[str, Any]:

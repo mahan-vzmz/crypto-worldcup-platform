@@ -6,12 +6,13 @@ abstractions (BaseRepository) injected via the constructor, so it is
 testable with fakes and no network or filesystem.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from app.clients.crypto_client import CryptoClient
 from app.config.settings import Settings
 from app.models.crypto import Coin, CryptoPrice
+from app.services.cache_policy import is_fresh
 from app.storage.base_repository import BaseRepository
 from app.utils.exceptions import APIError
 from app.utils.logger import get_logger
@@ -42,7 +43,9 @@ class CryptoService:
         """
         envelope = self._repository.load(CACHE_KEY)
 
-        if envelope is not None and self._is_fresh(envelope):
+        if envelope is not None and is_fresh(
+            envelope, self._settings.cache_ttl_seconds
+        ):
             logger.debug("crypto cache hit (fresh)")
             return self._deserialize(envelope["data"])
 
@@ -58,22 +61,6 @@ class CryptoService:
         self._repository.save(CACHE_KEY, self._serialize(prices))
         logger.debug("crypto cache refreshed from API")
         return prices
-
-    def _is_fresh(self, envelope: dict[str, Any]) -> bool:
-        """True if the cache timestamp is within the configured TTL.
-
-        A missing or unparseable timestamp is treated as stale (safe:
-        it forces a refetch rather than trusting unknown data).
-        """
-        raw = envelope.get("fetched_at")
-        if not isinstance(raw, str):
-            return False
-        try:
-            fetched_at = datetime.fromisoformat(raw)
-        except ValueError:
-            return False
-        ttl = timedelta(seconds=self._settings.cache_ttl_seconds)
-        return datetime.now(UTC) - fetched_at <= ttl
 
     @staticmethod
     def _serialize(prices: list[CryptoPrice]) -> dict[str, Any]:
