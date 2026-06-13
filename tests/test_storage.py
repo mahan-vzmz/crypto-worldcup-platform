@@ -1,73 +1,94 @@
+"""Tests for the JSON repository contract (#25).
+
+Uses pytest's tmp_path fixture: a fresh temporary directory per test,
+so filesystem behaviour is exercised for real without touching the
+project's data/ folders.
+"""
+
 import json
-from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
-from app.storage.json_repository import JSONRepository
+from app.storage.json_repository import SCHEMA_VERSION, JSONRepository
 from app.utils.exceptions import StorageError
 
 
-@pytest.fixture
-def repo(tmp_path):
-    """
-    یک فیکسچر که برای هر تست یک ریپازیتوری کاملاً ایزوله
-    در یک پوشه موقت می‌سازد.
-    """
-    return JSONRepository(tmp_path)
+def make_repo(tmp_path: Path) -> JSONRepository:
+    return JSONRepository(base_dir=tmp_path)
 
 
-def test_save_and_load_roundtrip(repo):
-    """تست ۱: ذخیره و بازیابی اطلاعات باید خروجی را در یک Envelope استاندارد برگرداند."""
-    payload = {"coin": "BTC", "price": 65000.0}
-    repo.save("crypto_btc", payload)
+class TestRoundTrip:
+    def test_save_then_load_preserves_data(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        payload = {"answer": 42, "nested": {"x": [1, 2, 3]}}
+        repo.save("sample", payload)
+        envelope = repo.load("sample")
+        assert envelope is not None
+        assert envelope["data"] == payload
+        assert envelope["schema_version"] == SCHEMA_VERSION
+        assert "fetched_at" in envelope
 
-    result = repo.load("crypto_btc")
-    assert result is not None
-    assert result["data"] == payload
-    assert result["schema_version"] == 1
-    assert "fetched_at" in result
-
-
-def test_load_missing_key_returns_none(repo):
-    """تست ۲: فراخوانی کلیدی که وجود ندارد باید None برگرداند، نه ارور."""
-    assert repo.load("missing_file") is None
-
-
-def test_load_corrupted_file_raises_storage_error(repo, tmp_path):
-    """تست ۳: اگر فایل JSON خراب باشد، باید StorageError بگیریم."""
-    corrupt_file = tmp_path / "corrupt.json"
-    corrupt_file.write_text("{bad_json: true, missing_quotes}")
-
-    with pytest.raises(StorageError):
-        repo.load("corrupt")
+    def test_save_overwrites_existing(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        repo.save("sample", {"v": 1})
+        repo.save("sample", {"v": 2})
+        envelope = repo.load("sample")
+        assert envelope is not None
+        assert envelope["data"] == {"v": 2}
 
 
-def test_load_wrong_schema_version_returns_none(repo, tmp_path):
-    """تست ۴: فایلی که نسخه اسکیما (schema) آن در آینده است، باید به عنوان دیتای ناموجود (None) در نظر گرفته شود."""
-    future_file = tmp_path / "future_schema.json"
-    future_data = {
-        "fetched_at": datetime.now(UTC).isoformat(),
-        "schema_version": 99,  # نسخه ناشناخته
-        "data": {"feature": "unknown"},
-    }
-    future_file.write_text(json.dumps(future_data))
+class TestMissing:
+    def test_load_missing_returns_none(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        assert repo.load("nope") is None
 
-    assert repo.load("future_schema") is None
-
-
-def test_delete_twice_does_not_raise(repo):
-    """تست ۵: پاک کردن فایلی که وجود ندارد (یا دو بار پاک کردن) نباید باعث کرش شود."""
-    repo.save("delete_me", {"temp": "data"})
-    assert repo.exists("delete_me") is True
-
-    repo.delete("delete_me")
-    assert repo.exists("delete_me") is False
-
-    # اجرای مجدد نباید ارور بدهد
-    repo.delete("delete_me")
+    def test_exists_reflects_state(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        assert repo.exists("k") is False
+        repo.save("k", {"a": 1})
+        assert repo.exists("k") is True
 
 
-def test_invalid_key_raises_storage_error(repo):
-    """تست ۶: کلیدهای خطرناک (مثل مسیرهای برگشتی به بیرون پوشه) باید مسدود شوند."""
-    with pytest.raises(StorageError):
-        repo.save("../escape_directory", {"hack": "fail"})
+class TestCorruption:
+    def test_corrupt_json_raises_storage_error(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        (tmp_path / "broken.json").write_text("{ not json", encoding="utf-8")
+        with pytest.raises(StorageError):
+            repo.load("broken")
+
+    def test_malformed_envelope_raises(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        # Valid JSON, but no "data" key -> malformed envelope.
+        (tmp_path / "weird.json").write_text('{"foo": 1}', encoding="utf-8")
+        with pytest.raises(StorageError):
+            repo.load("weird")
+
+
+class TestSchemaVersion:
+    def test_future_version_treated_as_miss(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        envelope = {
+            "fetched_at": "2026-06-12T12:00:00+00:00",
+            "schema_version": SCHEMA_VERSION + 1,
+            "data": {"x": 1},
+        }
+        (tmp_path / "future.json").write_text(json.dumps(envelope), encoding="utf-8")
+        assert repo.load("future") is None
+
+
+class TestDelete:
+    def test_double_delete_is_idempotent(self, tmp_path: Path) -> None:
+        repo = make_repo(tmp_path)
+        repo.save("k", {"a": 1})
+        repo.delete("k")
+        repo.delete("k")  # must not raise
+        assert repo.exists("k") is False
+
+
+class TestKeySafety:
+    @pytest.mark.parametrize("bad_key", ["../escape", "a/b", "UPPER", "sp ace"])
+    def test_unsafe_keys_raise(self, tmp_path: Path, bad_key: str) -> None:
+        repo = make_repo(tmp_path)
+        with pytest.raises(StorageError):
+            repo.save(bad_key, {"a": 1})

@@ -1,98 +1,146 @@
 # Crypto & World Cup Information Platform
 
-A Python terminal application delivering real-time cryptocurrency prices (BTC, ETH, SOL) and
-football tournament data through a clean, layered architecture.
+A Python 3.12 terminal application that displays live cryptocurrency prices
+(BTC, ETH, SOL) and football tournament data, built as a portfolio-grade
+demonstration of clean, layered architecture.
 
-## Purpose
+It is **offline-first and anti-fragile**: every external call is cached with a
+time-to-live, and when an API is unreachable the app serves the last good data
+rather than crashing. The user never sees a raw traceback.
 
-This project is a portfolio-grade showcase of professional software engineering principles in
-Python — Clean Architecture, SOLID (especially Dependency Inversion), separation of concerns,
-and test-driven growth. It is built incrementally, milestone by milestone, with every
-architectural decision documented in [`docs/architecture.md`](docs/architecture.md).
+## Why this project exists
 
-## Architecture Overview
+This is a learning and portfolio piece, not a product. Its goal is to show
+professional Python engineering in practice: Clean Architecture, SOLID (the
+Dependency Inversion Principle in particular), strict typing, and tests that
+isolate business logic from the outside world. Each design decision is recorded
+as an Architecture Decision Record in [`docs/architecture.md`](docs/architecture.md).
 
-- **Presentation Layer** — thin CLI interface using `rich`.
-- **Service Layer** — business logic, orchestration, and cache-TTL management.
-- **Data Layer** — isolated API clients (adapters) and an atomic JSON repository backend.
+## Features
 
-Dependencies flow in one direction only: Presentation → Service → Data. See the
-[architecture document](docs/architecture.md) for the full design, ADRs, scope, and roadmap.
+- **Cryptocurrency prices** — USD price, computed Toman price, 24-hour change,
+  and last-updated timestamp for BTC, ETH, and SOL. View all coins or a single
+  coin on demand.
+- **World Cup data** — fixtures, results, scores, kickoff times, team names, and
+  current tournament stage for one competition.
+- **TTL caching** — each fetch is cached with a `fetched_at` timestamp; fresh
+  cache is served without a network call, stale cache triggers a refetch.
+- **Offline fallback** — if a live API fails, the app serves the most recent
+  cached data with a warning instead of erroring out. Only a total failure
+  (API down *and* no cache at all) surfaces a clear message.
 
-## Project Status
+## Architecture in one diagram
 
-**Phase 0 (scaffolding) is complete.** The package structure, tooling, and entry point are in
-place and the application installs and runs. Feature implementation begins at Milestone M1.
-The application currently prints a startup banner and exits; data features are not yet built.
+```
+[ User ] -> [ Presentation ] -> [ Service ] -> [ Clients (external APIs) ]
+                                     |
+                               [ Storage (JSON) ]
+        ( Utilities & Configuration available to every layer )
+```
 
-## Requirements
+Dependencies flow one direction only. Services depend on *interfaces*, not
+concrete implementations, which is what makes the JSON-to-database migration (a
+future version) a swap rather than a rewrite — and what lets the test suite
+replace the network and filesystem with lightweight fakes. External API shapes
+are translated into typed domain models inside the client layer (an
+anti-corruption layer), so nothing above the clients ever sees raw API JSON.
 
-- Python 3.12 or newer
-- `git`
+## Tech stack
+
+| Concern | Choice |
+| --- | --- |
+| Language | Python 3.12+ |
+| HTTP | `requests` (session reuse, explicit timeouts, backoff retries) |
+| CLI rendering | `rich` |
+| Config | `python-dotenv` + environment variables |
+| Typing | `mypy --strict` |
+| Lint & format | `ruff` |
+| Tests | `pytest` |
+
+No dependency is included that the V1 scope does not need.
 
 ## Setup
 
-Clone the repository and enter it:
+Requires Python 3.12 or newer.
 
 ```bash
-git clone https://github.com/mahan-vzmz/crypto-worldcup-platform.git
+# 1. Clone and enter the project
+git clone <your-repo-url>
 cd crypto-worldcup-platform
-```
 
-Create and activate a virtual environment:
-
-```bash
+# 2. Create and activate a virtual environment
 python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# macOS / Linux
-source .venv/bin/activate
-
-# Windows (PowerShell)
-.venv\Scripts\Activate.ps1
-```
-
-Install the package in editable mode with development tooling:
-
-```bash
-pip install --upgrade pip
+# 3. Install the package (editable) with dev tooling
 pip install -e ".[dev]"
-```
 
-Copy the environment template and fill in values as they become required (API keys are
-introduced at Milestone M4):
-
-```bash
+# 4. Create your .env from the template
 cp .env.example .env
 ```
 
-## Usage
+### Environment variables
 
-Run the application via its console entry point:
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `DATA_DIR` | no | `data` | Root for cache, logs, settings, history |
+| `CACHE_TTL_SECONDS` | no | `300` | Freshness window before a refetch |
+| `USD_TO_TOMAN_RATE` | no | configurable fallback | USD→Toman conversion (see ADR-005 / TD-04) |
+| `CRYPTO_API_KEY` | no | — | CoinGecko key (lifts rate limits; not required) |
+| `FOOTBALL_API_KEY` | no | — | Football-Data.org key; without it, football features degrade gracefully |
+
+Crypto works with no keys at all. The football feature requires
+`FOOTBALL_API_KEY`; if it is absent the app still runs and simply reports the
+football section as unavailable.
+
+> The `.env` file is gitignored. No secret is ever committed or logged.
+
+## Running
+
+The `src/` layout means the package must be installed (step 3 above) before it
+can run. Use the console entry point or the module form — **not**
+`python src/main.py`, which bypasses the installed package and breaks imports:
 
 ```bash
-crypto-wc
+crypto-wc            # console entry point (defined in pyproject.toml)
+# or
+python -m app.main   # equivalent module invocation
 ```
 
-At this stage the command prints a startup banner confirming the environment is set up
-correctly. Interactive crypto and football features arrive in later milestones.
+You will see an interactive menu: all coin prices, a single coin, World Cup
+matches, or quit.
 
 ## Development
 
-Run the quality gates before opening a pull request:
-
 ```bash
-ruff check .      # lint
-ruff format .     # format
-mypy src          # static type checking (strict)
-pytest            # tests
+ruff check .         # lint
+ruff format .        # format
+mypy src             # strict type check
+pytest               # run the suite
 ```
 
-## Contributing
+The test suite covers the domain models, the JSON repository (with a real
+temporary-directory fixture), and the service orchestration (with in-memory
+fakes for the client and repository). No test touches a live API or the real
+filesystem outside its fixture.
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the branch strategy, commit conventions, and the
-pre-merge code review checklist. In short: one feature branch per issue, merged into a protected
-`main` via pull request, using Conventional Commits.
+## Project layout
+
+```
+src/app/
+  main.py            # composition root: wires every layer, starts the CLI
+  config/            # settings loader (frozen dataclass, env-driven)
+  models/            # typed domain dataclasses (crypto, football)
+  services/          # orchestration: cache-then-fetch with offline fallback
+  clients/           # API adapters (anti-corruption layer) + base HTTP client
+  storage/           # repository interface + atomic JSON implementation
+  presentation/      # rich renderers + interactive menu (no business logic)
+  utils/             # logging, exception hierarchy
+tests/               # mirrors the source tree
+docs/                # architecture, taskbook, release notes
+data/                # runtime cache/logs/settings/history (gitignored)
+```
 
 ## License
 
-Released under the MIT License. See [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).
