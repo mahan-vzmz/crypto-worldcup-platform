@@ -145,6 +145,28 @@
 
 ---
 
+## Milestone V2 — SQLite & Price History
+**Epic:** Durable, queryable storage · **Status:** 🚧 In progress
+
+- [x] **Client Protocols** (`clients/protocols.py`) — `CryptoClientProtocol` /
+  `FootballClientProtocol`; services typed against them; the test `type: ignore` removed and the
+  unavailable-football stand-in now implements a real interface (TD-09 / TD-10).
+- [x] **Repository interface redesign** (`storage/base_repository.py`) — evolve from generic
+  key→dict to domain-specific methods; add the generic `Cached[T]` envelope (ADR-011).
+- [x] **SQLiteRepository** (`storage/sqlite_repository.py`) — normalized schema
+  (`price_history`, `tournament`, `match`), append-only prices, snapshot-only tournament,
+  `sqlite3` → `StorageError` translation (TD-01).
+- [x] **Price-history feature** — `CryptoService.get_price_history`, `render_price_history`,
+  and a new menu option.
+- [x] **Tests** — SQLite repository suite (`tests/test_sqlite_repository.py`); service fake updated
+  to the new interface; config tests isolated from a real `.env`. JSON repo + its tests retired.
+- [ ] **Money → `Decimal`** (TD-02) — pending.
+- [ ] **Real USD→Toman rate source** (TD-04) — pending.
+
+> **V2 status:** 52 tests green; `ruff` + `mypy --strict` clean. Storage swapped from JSON to SQLite.
+
+---
+
 ## Definition of Done (V1) — met
 
 Full criteria in [`architecture.md`](architecture.md) §7. Verified at release:

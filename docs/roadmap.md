@@ -5,11 +5,15 @@
 > [`taskbook.md`](taskbook.md). This document gives the strategic view: where the project is
 > going, what is built versus planned, and what is learned at each stage.
 >
-> **Status:** **V1.0.0 is complete.** All milestones M0–M7 are implemented and merged into a
+> **Status:** 
+>**V1.0.0 is complete.** All milestones M0–M7 are implemented and merged into a
 > protected `main`. This roadmap was reconciled against a live repository audit at V1 closeout:
 > the codebase, the test suite (52 tests green on Python 3.12, after fixing a merge-conflict marker
 > that had been blocking collection), and the tooling gates (`ruff`, `mypy --strict`) were all
-> verified directly. Everything from **V2 onward is Planned / Not Yet Implemented.**
+> verified directly.
+> **V2 in progress:** the SQLite storage swap and the price-history feature have landed; client
+> `Protocol`s complete the DIP seam. Remaining V2 work: `float`→`Decimal` (TD-02) and a real
+> USD→Toman rate source (TD-04).
 ---
 
 ## Project Vision
@@ -133,13 +137,18 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Learning objectives:** the full clean-architecture foundation - layering, dependency
   inversion, repository and adapter patterns, configuration and logging, error handling, testing.
 
-### Version 2 - SQLite *(Planned)*
-- **Features:** durable, queryable persistence replacing flat JSON.
-- **Architectural changes:** a new `SQLiteRepository` implementing the existing repository
-  interface; services unchanged. Likely move money representation from `float` to `Decimal`.
-- **Technologies introduced:** `sqlite3`, SQL basics, schema migration.
-- **Learning objectives:** relational storage, the payoff of the repository abstraction, data
-  migration.
+### Version 2 - SQLite *(in progress)*
+- **Status:** the storage swap has landed — `SQLiteRepository` with a normalized schema
+  (`price_history`, `tournament`, `match`), a new per-coin price-history feature, and the
+  client-side DIP seam completed (TD-09 / TD-10). Remaining: `float`→`Decimal` (TD-02) and a real
+  USD→Toman rate source (TD-04).
+- **Features:** durable, queryable persistence replacing flat JSON; per-coin price history.
+- **Architectural changes:** the repository interface evolved from key→dict to a domain-specific
+  contract (ADR-011 / decisions ADR-015); JSON retired. Client `Protocol`s added so services depend
+  on abstractions on both sides.
+- **Technologies introduced:** `sqlite3`, SQL basics, `typing.Protocol`, generics (`Cached[T]`).
+- **Learning objectives:** relational storage, the payoff *and limits* of the repository
+  abstraction, structural vs nominal typing.
 
 ### Version 3 - OOP & Service Refactor *(Planned)*
 - **Features:** cleaner internals; no major user-facing change.

@@ -234,3 +234,25 @@
 - **Consequences:** V1 carries some extra abstraction it does not strictly need for itself, justified
   by the planned roadmap. Each deferral is recorded in the technical debt register with a target
   version.
+
+## ADR-015 — V2 Storage: SQLite with a Normalized Schema and a Domain Repository
+- **Phase:** V2. **Status:** Implemented (`storage/sqlite_repository.py`).
+- **Context:** V2 adds a price-history / query capability. V1's repository was a generic
+  key→dict cache (one JSON file per key), which cannot answer "give me BTC's last N prices."
+- **Alternatives considered:** (a) keep the key→dict interface and store a JSON blob in one
+  SQLite column (a true drop-in swap, but SQLite as a dumb blob store — no queryable history);
+  (b) a normalized schema (`price_history`, `tournament`, `match`) behind a domain-specific
+  repository interface.
+- **Decision:** (b). `BaseRepository` evolved from key→dict into domain methods (`save_prices` /
+  `load_latest_prices` / `get_price_history` / `save_tournament` / `load_latest_tournament`),
+  returning a generic `Cached[T]` envelope. JSON is retired; `SQLiteRepository` (stdlib `sqlite3`)
+  is the sole implementation. Prices are append-only (enabling history); the tournament is
+  snapshot-only.
+- **Rationale:** A flat key-value cache cannot express history or queries, which is the whole
+  point of V2. Evolving the interface is justified by a genuine new capability, not rework for its
+  own sake. This consciously trades V1's "swap, not rewrite" promise (ADR-002) for real query
+  power — the trade-off was made explicitly, not by accident.
+- **Consequences:** Services no longer (de)serialize — the repository owns model↔row mapping, so
+  the service layer shrank to pure orchestration. The DIP seam still holds: the in-memory test fake
+  and `SQLiteRepository` both implement the same ABC. `float`→`Decimal` (TD-02 / ADR-013) remains a
+  follow-up within V2. (Corresponds to ADR-011 in `architecture.md`.)

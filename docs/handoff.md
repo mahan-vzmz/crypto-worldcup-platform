@@ -7,8 +7,8 @@
 > issue-by-issue execution record), and [`v1-release-note.md`](v1-release-note.md) (the V1
 > closeout). [`roadmap.md`](roadmap.md) holds the strategic V1–V6 view.
 
-**Last updated:** V1.0.0 closeout — all milestones M0–M7 complete and merged.
-**Branch state:** V1 work merged into a protected `main`.
+**Last updated:** V2 in progress — SQLite storage swap + price-history feature landed.
+**Branch state:** V1 merged into a protected `main`; V2 work on the active development branch.
 
 ---
 
@@ -42,6 +42,18 @@ milestones below are merged.
 | M5 | Service Layer (cache-then-fetch orchestration) | ✅ Complete |
 | M6 | Presentation (rich renderers + menu + wiring) | ✅ Complete |
 | M7 | Tests & Documentation | ✅ Complete |
+
+### V2 progress (current)
+- **Client Protocols** (`clients/protocols.py`) completed the DIP seam (TD-09/TD-10): services now
+  depend on `CryptoClientProtocol` / `FootballClientProtocol`, not concrete clients.
+- **Storage swapped to SQLite** (`storage/sqlite_repository.py`, ADR-011): a normalized schema
+  (`price_history`, `tournament`, `match`); the repository interface is now domain-specific
+  (`save_prices` / `load_latest_prices` / `get_price_history` / `save_tournament` /
+  `load_latest_tournament`) returning a generic `Cached[T]`. JSON repo retired.
+- **New feature:** per-coin price history (`CryptoService.get_price_history`, a renderer, menu
+  option 3). The DB lives at `data/app.db`.
+- **Verified:** 52 tests green; `ruff` + `mypy --strict` clean; app runs and creates the schema.
+- **Still pending in V2:** `float`→`Decimal` (TD-02), a real USD→Toman rate source (TD-04).
 
 ### What physically exists in `src/app/`
 - `utils/exceptions.py` — `AppError` base with `ConfigError` / `StorageError` / `APIError`.
@@ -138,17 +150,18 @@ V1 is shipped, so the next work is **V2** (or pre-V2 cleanup). Cheapest high-val
 - Add a minimal CI workflow (ruff + mypy + pytest on push) — the single guard that would have caught
   the conflict-marker bug before merge (currently deferred as TD-05).
 
-### V2 — the storage swap (the headline migration the architecture was built for)
-1. **TD-09 / TD-10 first (small, enabling refactor).** Extract `CryptoClientProtocol` /
-   `FootballClientProtocol` (`typing.Protocol`) and type the services and `main.py` against them.
-   This removes the `# type: ignore[arg-type]` in `tests/test_services.py` and lets
-   `_UnavailableFootballClient` implement a real interface. It completes the DIP seam on the client
-   side, mirroring what `BaseRepository` already does for storage.
-2. **TD-01 — `SQLiteRepository`.** Implement the existing `BaseRepository` contract against
-   `sqlite3`. Services must not change — that is the proof the seam was worth it. Reuse the storage
-   test suite by parametrizing it over both repository implementations.
-3. **TD-02 — money to `Decimal`.** Migrate `CryptoPrice` monetary fields alongside the DB work.
-4. **TD-04 — a real USD→Toman rate source** instead of the static fallback.
+## 5. Precise next steps — where to pick up the knife
+
+V2's headline (SQLite + history) and the client DIP seam are done. Remaining, in order:
+
+1. **TD-02 — money to `Decimal`.** Migrate `CryptoPrice.price_usd` / `price_toman` from `float` to
+   `Decimal`. Touch points: the model, the CoinGecko client mapping, the SQLite row mappers (store
+   as TEXT to preserve precision, or REAL if approximate display is acceptable), and the renderers.
+   Update ADR-013 to "resolved (V2)".
+2. **TD-04 — a real USD→Toman rate source** behind a small adapter, replacing the static fallback.
+3. Then close V2: write `docs/v2-release-note.md`, bump the version, and reconcile the docs.
+
+After V2: **V3** (cache-strategy object / richer result types) per the roadmap.
 
 See [`roadmap.md`](roadmap.md) for the full V2–V6 arc and [`architecture.md`](architecture.md) §8.
 
