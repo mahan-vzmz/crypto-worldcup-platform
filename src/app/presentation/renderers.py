@@ -8,7 +8,7 @@ layer depends only on the models below it.
 from rich.table import Table
 from rich.text import Text
 
-from app.models.crypto import CryptoPrice
+from app.models.crypto import Coin, CryptoPrice
 from app.models.football import Match, MatchStatus, Tournament
 
 
@@ -37,6 +37,29 @@ def render_prices(prices: list[CryptoPrice]) -> Table:
             f"{price.price_toman:,.0f}",
             _format_change(price.change_24h),
             price.last_updated.strftime("%Y-%m-%d %H:%M"),
+        )
+    return table
+
+
+def render_price_history(coin: Coin, history: list[CryptoPrice]) -> Table:
+    """Build a table of a single coin's recorded price snapshots (newest first)."""
+    title = f"{coin.symbol} price history ({len(history)} most recent)"
+    table = Table(title=title, expand=False)
+    table.add_column("Updated (UTC)", style="dim")
+    table.add_column("USD", justify="right")
+    table.add_column("Toman", justify="right")
+    table.add_column("24h", justify="right")
+
+    if not history:
+        table.add_row("[dim]no history recorded yet[/dim]", "", "", "")
+        return table
+
+    for price in history:
+        table.add_row(
+            price.last_updated.strftime("%Y-%m-%d %H:%M"),
+            f"${price.price_usd:,.2f}",
+            f"{price.price_toman:,.0f}",
+            _format_change(price.change_24h),
         )
     return table
 

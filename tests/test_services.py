@@ -1,20 +1,21 @@
-"""Tests for service orchestration (#26).
+"""Tests for service orchestration.
 
 Lightweight in-memory fakes replace the real client and repository so
 the cache-then-fetch policy is tested in isolation: no network, no disk.
-The BaseRepository ABC is what makes the fake repository a drop-in.
+The BaseRepository ABC is what makes the fake repository a drop-in;
+FakeCryptoClient structurally satisfies CryptoClientProtocol (no inheritance).
 """
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from app.config.settings import Settings
 from app.models.crypto import Coin, CryptoPrice
-from app.services.crypto_service import CACHE_KEY, CryptoService
-from app.storage.base_repository import BaseRepository
+from app.models.football import Tournament
+from app.services.crypto_service import CryptoService
+from app.storage.base_repository import BaseRepository, Cached
 from app.utils.exceptions import APIError
 
 SETTINGS = Settings(
@@ -42,44 +43,33 @@ class FakeRepository(BaseRepository):
     """In-memory repository honouring the BaseRepository contract."""
 
     def __init__(self) -> None:
-        self._store: dict[str, dict[str, Any]] = {}
+        self._prices: Cached[list[CryptoPrice]] | None = None
+        self._history: list[CryptoPrice] = []
+        self._tournament: Cached[Tournament] | None = None
         self.save_calls = 0
 
-    def save(self, key: str, data: dict[str, Any]) -> None:
+    def save_prices(self, prices: list[CryptoPrice]) -> None:
         self.save_calls += 1
-        self._store[key] = data
+        self._prices = Cached(data=list(prices), fetched_at=datetime.now(UTC))
+        self._history = list(prices) + self._history
 
-    def load(self, key: str) -> dict[str, Any] | None:
-        return self._store.get(key)
+    def load_latest_prices(self) -> Cached[list[CryptoPrice]] | None:
+        return self._prices
 
-    def exists(self, key: str) -> bool:
-        return key in self._store
+    def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
+        return [p for p in self._history if p.symbol == symbol][:limit]
 
-    def delete(self, key: str) -> None:
-        self._store.pop(key, None)
+    def save_tournament(self, tournament: Tournament) -> None:
+        self.save_calls += 1
+        self._tournament = Cached(data=tournament, fetched_at=datetime.now(UTC))
 
-    def seed_envelope(
-        self, key: str, prices: list[CryptoPrice], *, age_seconds: int
-    ) -> None:
-        """Place a pre-built cache envelope with a chosen age."""
+    def load_latest_tournament(self) -> Cached[Tournament] | None:
+        return self._tournament
+
+    def seed_prices(self, prices: list[CryptoPrice], *, age_seconds: int) -> None:
+        """Place a pre-built cache entry with a chosen age."""
         fetched_at = datetime.now(UTC) - timedelta(seconds=age_seconds)
-        self._store[key] = {
-            "fetched_at": fetched_at.isoformat(),
-            "schema_version": 1,
-            "data": {
-                "prices": [
-                    {
-                        "symbol": p.symbol,
-                        "name": p.name,
-                        "price_usd": p.price_usd,
-                        "price_toman": p.price_toman,
-                        "change_24h": p.change_24h,
-                        "last_updated": p.last_updated.isoformat(),
-                    }
-                    for p in prices
-                ]
-            },
-        }
+        self._prices = Cached(data=list(prices), fetched_at=fetched_at)
 
 
 class FakeCryptoClient:
@@ -107,7 +97,7 @@ def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoServi
 class TestFreshCacheHit:
     def test_serves_cache_without_calling_client(self) -> None:
         repo = FakeRepository()
-        repo.seed_envelope(CACHE_KEY, [a_price()], age_seconds=10)
+        repo.seed_prices([a_price()], age_seconds=10)
         client = FakeCryptoClient(fail=True)  # would raise if called
         service = build_service(client, repo)
 
@@ -120,7 +110,7 @@ class TestFreshCacheHit:
 class TestStaleAndMiss:
     def test_stale_cache_triggers_fetch_and_save(self) -> None:
         repo = FakeRepository()
-        repo.seed_envelope(CACHE_KEY, [a_price()], age_seconds=10_000)
+        repo.seed_prices([a_price()], age_seconds=10_000)
         fresh = [a_price()]
         client = FakeCryptoClient(fresh)
         service = build_service(client, repo)
@@ -145,7 +135,7 @@ class TestStaleAndMiss:
 class TestOfflineFallback:
     def test_api_failure_with_stale_cache_serves_stale(self) -> None:
         repo = FakeRepository()
-        repo.seed_envelope(CACHE_KEY, [a_price()], age_seconds=10_000)
+        repo.seed_prices([a_price()], age_seconds=10_000)
         client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
@@ -164,3 +154,15 @@ class TestCompleteFailure:
 
         with pytest.raises(APIError):
             service.get_prices(COINS)
+
+
+class TestPriceHistory:
+    def test_history_reads_from_repository(self) -> None:
+        repo = FakeRepository()
+        client = FakeCryptoClient([a_price()])
+        service = build_service(client, repo)
+
+        service.get_prices(COINS)  # records one batch
+        history = service.get_price_history(Coin.BTC, limit=10)
+
+        assert [p.symbol for p in history] == ["BTC"]

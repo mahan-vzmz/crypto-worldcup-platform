@@ -71,6 +71,11 @@ class Settings:
         """Directory for log files."""
         return self.data_dir / "logs"
 
+    @property
+    def db_path(self) -> Path:
+        """Path to the SQLite database file (V2 durable storage)."""
+        return self.data_dir / "app.db"
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build a ``Settings`` instance from the environment.

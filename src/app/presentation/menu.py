@@ -7,10 +7,14 @@ sees a friendly message, never a raw traceback).
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import IntPrompt, Prompt
 
 from app.models.crypto import Coin
-from app.presentation.renderers import render_prices, render_tournament
+from app.presentation.renderers import (
+    render_price_history,
+    render_prices,
+    render_tournament,
+)
 from app.services.crypto_service import CryptoService
 from app.services.football_service import FootballService
 from app.utils.exceptions import AppError, ConfigError
@@ -23,7 +27,8 @@ _MENU = """\
 
   [cyan]1[/cyan]  All coin prices
   [cyan]2[/cyan]  Single coin price
-  [cyan]3[/cyan]  World Cup matches
+  [cyan]3[/cyan]  Coin price history
+  [cyan]4[/cyan]  World Cup matches
   [cyan]q[/cyan]  Quit"""
 
 
@@ -44,7 +49,9 @@ class Menu:
         """Main loop. Returns when the user chooses to quit."""
         self._console.print(Panel(_MENU, border_style="magenta", expand=False))
         while True:
-            choice = Prompt.ask("Select", choices=["1", "2", "3", "q"], default="q")
+            choice = Prompt.ask(
+                "Select", choices=["1", "2", "3", "4", "q"], default="q"
+            )
             if choice == "q":
                 self._console.print("[dim]Goodbye.[/dim]")
                 return
@@ -58,6 +65,8 @@ class Menu:
             elif choice == "2":
                 self._show_single_coin()
             elif choice == "3":
+                self._show_price_history()
+            elif choice == "4":
                 self._show_world_cup()
         except ConfigError as exc:
             self._console.print(f"[yellow]Unavailable:[/yellow] {exc}")
@@ -70,11 +79,20 @@ class Menu:
         self._console.print(render_prices(prices))
 
     def _show_single_coin(self) -> None:
-        symbol = Prompt.ask("Coin", choices=[c.symbol for c in Coin])
-        coin = next(c for c in Coin if c.symbol == symbol)
+        coin = self._ask_coin()
         prices = self._crypto.get_prices([coin])
         self._console.print(render_prices(prices))
+
+    def _show_price_history(self) -> None:
+        coin = self._ask_coin()
+        limit = IntPrompt.ask("How many records", default=10)
+        history = self._crypto.get_price_history(coin, limit=limit)
+        self._console.print(render_price_history(coin, history))
 
     def _show_world_cup(self) -> None:
         tournament = self._football.get_tournament()
         self._console.print(render_tournament(tournament))
+
+    def _ask_coin(self) -> Coin:
+        symbol = Prompt.ask("Coin", choices=[c.symbol for c in Coin])
+        return next(c for c in Coin if c.symbol == symbol)

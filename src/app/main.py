@@ -4,11 +4,13 @@ Ordering is deliberate and anti-fragile (extends the M1 startup
 sequence): settings -> directories -> logging -> build data/clients ->
 build services -> launch menu. main.py is the only module permitted to
 import across all layers (TD-03: manual wiring, acceptable for V1).
+
+V2: the data layer is now a SQLiteRepository (was JSONRepository); nothing
+else in the wiring changes -- the repository is hidden behind BaseRepository.
 """
 
 import logging
 import sys
-from pathlib import Path
 
 from rich.console import Console
 
@@ -20,7 +22,7 @@ from app.models.football import Tournament
 from app.presentation.menu import Menu
 from app.services.crypto_service import CryptoService
 from app.services.football_service import FootballService
-from app.storage.json_repository import JSONRepository
+from app.storage.sqlite_repository import SQLiteRepository
 from app.utils.exceptions import ConfigError
 from app.utils.logger import get_logger, setup_logging
 
@@ -47,7 +49,7 @@ def main() -> None:
     logger.info("starting platform; data_dir=%s", settings.data_dir)
 
     # 4. Build the data layer: one repository, two API clients.
-    repository = JSONRepository(base_dir=Path(settings.cache_dir))
+    repository = SQLiteRepository(db_path=settings.db_path)
     crypto_client = CryptoClient(
         usd_to_toman_rate=settings.usd_to_toman_rate,
         api_key=settings.crypto_api_key,
@@ -83,7 +85,12 @@ def _build_football_client(
 
 
 class _UnavailableFootballClient:
-    """Stand-in used when no football key is configured."""
+    """Stand-in used when no football key is configured.
+
+    Structurally satisfies FootballClientProtocol (it has a matching
+    ``fetch_world_cup``), so it can be returned where the protocol is
+    expected -- without inheriting from the real client.
+    """
 
     def fetch_world_cup(self) -> Tournament:
         raise ConfigError("FOOTBALL_API_KEY is not set; football data is unavailable")

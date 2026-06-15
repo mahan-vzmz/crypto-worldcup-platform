@@ -1,57 +1,88 @@
 """Abstract persistence contract: the seam between services and storage.
 
-Services depend on this interface, never on a concrete backend
-(Dependency Inversion). Implementations (JSON in V1, possibly a
-database later) must honour every contract documented below, and must
-translate all foreign failures (OSError, json errors, ...) into
-``StorageError`` at this boundary.
+Services depend on this interface, never on a concrete backend (Dependency
+Inversion). Implementations (SQLite in V2; the in-memory fake in tests) must
+honour every contract documented below and translate all foreign failures
+(``sqlite3`` errors, ...) into ``StorageError`` at this boundary.
+
+V2 change: the contract evolved from a generic key->dict store into a
+*domain-specific* interface. This was driven by a new capability -- price
+history / queries -- which a flat key-value cache cannot express. See ADR-011.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from dataclasses import dataclass
+from datetime import datetime
+
+from app.models.crypto import CryptoPrice
+from app.models.football import Tournament
+
+
+@dataclass(frozen=True)
+class Cached[T]:
+    """A stored value together with the moment it was fetched.
+
+    The ``fetched_at`` timestamp lets the service apply its TTL freshness
+    policy without the repository knowing anything about caching.
+    """
+
+    data: T
+    fetched_at: datetime
 
 
 class BaseRepository(ABC):
-    """Key-value persistence for JSON-shaped payloads.
+    """Durable storage for the domain's cached data and history."""
 
-    Keys are short, stable identifiers (e.g. ``"crypto_prices"``).
-    Payloads are plain ``dict`` structures; mapping domain models to
-    and from dicts is the caller's concern, not the repository's.
-    """
+    # ---- cryptocurrency ----
 
     @abstractmethod
-    def save(self, key: str, data: dict[str, Any]) -> None:
-        """Persist *data* under *key*, overwriting any existing record.
+    def save_prices(self, prices: list[CryptoPrice]) -> None:
+        """Persist a fresh batch of prices, stamping it with the current time.
+
+        Each batch is appended to the price history (it does not overwrite
+        earlier batches), which is what makes ``get_price_history`` possible.
 
         Raises:
             StorageError: if the data cannot be written.
         """
 
     @abstractmethod
-    def load(self, key: str) -> dict[str, Any] | None:
-        """Return the record stored under *key*, or ``None`` if absent.
+    def load_latest_prices(self) -> "Cached[list[CryptoPrice]] | None":
+        """Return the most recently saved batch of prices, or ``None``.
 
-        Absence is a normal outcome (e.g. a cold cache) and is signalled
-        by ``None``, not an exception.
+        Absence (a cold cache) is signalled by ``None``, not an exception.
 
         Raises:
-            StorageError: if the record exists but cannot be read or parsed.
+            StorageError: if stored data exists but cannot be read.
         """
 
     @abstractmethod
-    def exists(self, key: str) -> bool:
-        """Return whether a record is stored under *key*.
+    def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
+        """Return up to *limit* most-recent recorded prices for *symbol*.
+
+        Ordered newest first. An empty list means no history yet.
 
         Raises:
-            StorageError: if existence cannot be determined.
+            StorageError: if the history cannot be read.
+        """
+
+    # ---- football ----
+
+    @abstractmethod
+    def save_tournament(self, tournament: Tournament) -> None:
+        """Persist the tournament snapshot, replacing any previous one.
+
+        The tournament is snapshot-only (no history in V2): each save
+        supersedes the last.
+
+        Raises:
+            StorageError: if the data cannot be written.
         """
 
     @abstractmethod
-    def delete(self, key: str) -> None:
-        """Remove the record under *key*. A missing key is a no-op.
-
-        Idempotent by contract: deleting twice is not an error.
+    def load_latest_tournament(self) -> "Cached[Tournament] | None":
+        """Return the most recently saved tournament, or ``None`` if absent.
 
         Raises:
-            StorageError: if an existing record cannot be removed.
+            StorageError: if stored data exists but cannot be read.
         """

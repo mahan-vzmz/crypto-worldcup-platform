@@ -24,6 +24,9 @@ _ENV_VARS = (
 
 @pytest.fixture
 def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Neutralize any real .env file so these tests depend only on the
+    # variables they set explicitly -- never the developer's local secrets.
+    monkeypatch.setattr("app.config.settings.load_dotenv", lambda *a, **k: False)
     for var in _ENV_VARS:
         monkeypatch.delenv(var, raising=False)
 

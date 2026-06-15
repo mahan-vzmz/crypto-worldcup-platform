@@ -151,6 +151,22 @@ Each ADR records the *reasoning* behind a load-bearing decision, not merely the 
 - **Final decision:** **`pyproject.toml` canonical**, runtime vs. `dev` extras separated, `src/` layout, editable install, Ruff/pytest/mypy configured in the same file.
 - **Rationale:** modern standard; one source of truth; the `src/` layout prevents importing the un-installed package.
 
+### ADR-011 — V2 storage: SQLite with a normalized schema, and a domain-specific repository
+- **Context:** V2 introduces a price-history / query capability. V1's repository was a generic
+  key→dict cache (one JSON file per key), which cannot express "give me BTC's last N prices."
+- **Options considered:** (a) keep the key→dict interface and store a JSON blob in one SQLite
+  column (a true drop-in swap, but SQLite used as a dumb blob store — no queryable history);
+  (b) a normalized schema (`price_history`, `tournament`, `match`) behind a domain-specific
+  repository interface (`save_prices`/`load_latest_prices`/`get_price_history`/...).
+- **Trade-offs:** (a) preserves the "swap, not rewrite" thesis but delivers no real query power;
+  (b) delivers history/queries and uses SQL properly, at the cost of evolving the repository
+  interface and the services that depend on it.
+- **Final decision:** **(b)** — normalized schema + domain-specific `BaseRepository`. JSON is
+  retired; SQLite (stdlib `sqlite3`) becomes the sole implementation. The seam still holds: the
+  in-memory fake in the tests and `SQLiteRepository` both implement the same ABC.
+- **Rationale:** the interface change is justified by a genuine new capability, not gratuitous
+  rework. `float`→`Decimal` (TD-02) is deferred to a follow-up within V2.
+
 ### Remaining open questions
 All three live external-provider questions — crypto endpoint terms (ADR-003), football competition
 selection (ADR-004), and Toman rate source (ADR-005) — are deliberately deferred to **Milestone M4**,
@@ -227,7 +243,7 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 
 | ID | Description | Reason | Impact | Severity | Recommended Resolution | Planned Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| TD-01 | JSON storage, no concurrency safety | Single-user CLI; atomic writes cover the single-writer case | Breaks under concurrent/web access | Medium | Move to SQLite behind the same repository interface | V2 |
+| TD-01 *(Resolved in V2)* | JSON storage, no concurrency safety | Single-user CLI; atomic writes cover the single-writer case | Breaks under concurrent/web access | Medium | Move to SQLite behind the same repository interface | V2 |
 | TD-02 | Money as `float` | Display-only in V1; `Decimal` ceremony unjustified now | Rounding error if values ever drive arithmetic | Low | Switch to `Decimal` alongside the DB migration | V2 |
 | TD-03 | Manual dependency wiring in `main.py` | Few components; explicit wiring reads more clearly than a container for a learner | Wiring grows verbose as components multiply | Low | Introduce a small composition/DI helper if it becomes unwieldy | V3 |
 | TD-04 | Toman price may use a configurable fallback rate | Keeps V1 shippable without a second fragile integration | Displayed Toman value may be approximate | Medium | Adopt a proper rate source | V2/V3 |
