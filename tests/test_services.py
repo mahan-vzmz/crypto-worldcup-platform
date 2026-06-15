@@ -22,10 +22,7 @@ SETTINGS = Settings(
     crypto_api_key="dummy_crypto",
     football_api_key="dummy_football",
     cache_ttl_seconds=300,
-<<<<<<< ours
-=======
     usd_to_toman_rate=90_000.0,
->>>>>>> theirs
 )
 COINS = [Coin.BTC]
 

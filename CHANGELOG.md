@@ -40,7 +40,7 @@ including the offline-fallback path against a disconnected network.
   rotating-file + console logging.
 - **Configuration** — `USD_TO_TOMAN_RATE` setting added to support the ADR-005
   conversion with a configurable fallback rate.
-- **Tests** — 41 passing across model invariants, the JSON repository (real
+- **Tests** — 52 passing across model invariants, the JSON repository (real
   temporary-directory fixture), and all four service orchestration branches
   (fresh / stale / offline-fallback / total-failure) using in-memory fakes. No
   test touches a live API or the real filesystem outside its fixture.

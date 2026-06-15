@@ -3,10 +3,12 @@
 > **Purpose.** This document is the bridge between development sessions. It is written so a
 > fresh session (with no prior conversation context) can resume work immediately and correctly.
 > Read this together with [`architecture.md`](architecture.md) (design rationale, ADRs, frozen
-> scope, Definition of Done) and [`taskbook.md`](taskbook.md) (the issue-by-issue roadmap).
+> scope, Definition of Done, technical-debt register), [`taskbook.md`](taskbook.md) (the
+> issue-by-issue execution record), and [`v1-release-note.md`](v1-release-note.md) (the V1
+> closeout). [`roadmap.md`](roadmap.md) holds the strategic V1–V6 view.
 
-**Last updated:** end of Milestone M1 (Foundations).
-**Branch state:** all work below is merged into a protected `main`.
+**Last updated:** V1.0.0 closeout — all milestones M0–M7 complete and merged.
+**Branch state:** V1 work merged into a protected `main`.
 
 ---
 
@@ -16,154 +18,148 @@ A Python 3.12+ terminal application that displays cryptocurrency prices (BTC, ET
 football tournament data, built as a portfolio-grade demonstration of clean, layered architecture.
 Dependencies flow one direction only: Presentation → Service → Data, with Utilities and Config
 available to all layers. Persistence is JSON behind a repository interface (the seam for a future
-SQLite/PostgreSQL migration). External APIs sit behind adapter clients. The project is built
-issue by issue, each on its own feature branch, merged via PR into a protected `main` using
-Conventional Commits. The mentoring style is deliberate: concept → plan → code → review for every
-piece, readability over cleverness, and every compromise recorded as tracked debt.
+SQLite/PostgreSQL migration). External APIs sit behind adapter clients (an anti-corruption layer).
+The project is built issue by issue, each on its own feature branch, merged via PR into a protected
+`main` using Conventional Commits. The mentoring style is deliberate: concept → plan → code →
+review for every piece, readability over cleverness, and every compromise recorded as tracked debt.
 
 ---
 
 ## 2. Current project status — what is built, integrated, and verified
 
-### Phase 0 — Scaffolding (Milestone M0) ✅
-- Repository created; `main` branch protection enabled; PR-per-issue workflow established.
-- `.gitignore`, `.env.example`, `LICENSE` (MIT), `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md` committed.
-- Full `src/app/...` package tree with `__init__.py` files; `tests/` mirror; `data/{cache,settings,history,logs}/`
-  folders tracked via `.gitkeep` (contents gitignored).
-- `pyproject.toml` is the canonical config: `src/` layout, runtime deps (`requests`, `rich`,
-  `python-dotenv`), dev extras (`pytest`, `ruff`, `mypy`, `types-requests`), and Ruff/pytest/mypy
-  configuration. Editable install (`pip install -e ".[dev]"`) verified.
-- `crypto-wc` console entry point works.
-- Post-audit closeout: `docs/architecture.md` committed (audit finding C-1); README setup/usage
-  updated (finding C-2). Phase 0 closed with a clean Go.
+**V1 is feature-complete.** The full four-layer architecture is implemented end to end: a user can
+run `crypto-wc`, view all coins / a single coin / the World Cup table, and the app caches every
+fetch, falls back to stale cache when an API is down, and never surfaces a raw traceback. All
+milestones below are merged.
 
-### Phase 1 — Foundations (Milestone M1) ✅
+| Milestone | Theme | Status |
+| --- | --- | --- |
+| M0 | Bootstrap / Scaffolding | ✅ Complete |
+| M1 | Foundations (exceptions, logging, settings) | ✅ Complete |
+| M2 | Domain Models (crypto, football) | ✅ Complete |
+| M3 | Storage Layer (repo interface + JSON impl) | ✅ Complete |
+| M4 | API Clients (base + CoinGecko + Football-Data) | ✅ Complete |
+| M5 | Service Layer (cache-then-fetch orchestration) | ✅ Complete |
+| M6 | Presentation (rich renderers + menu + wiring) | ✅ Complete |
+| M7 | Tests & Documentation | ✅ Complete |
 
-**Issue #9 — `src/app/utils/exceptions.py` (custom exception hierarchy).**
-`AppError` is the base for every deliberately-raised application error. Subclasses: `ConfigError`,
-`StorageError`, `APIError`. The governing rule: each layer translates foreign exceptions (e.g.
-`requests`, `json`, `OSError`) into one of these at its boundary, so lower-level libraries never
-leak upward. Classes are docstring-only (no custom fields yet — deferred until a caller needs them).
-*Verified:* Liskov substitution confirmed in REPL — a subclass instance is caught by `except AppError`.
+### What physically exists in `src/app/`
+- `utils/exceptions.py` — `AppError` base with `ConfigError` / `StorageError` / `APIError`.
+- `utils/logger.py` — `setup_logging` (rotating file at DEBUG+, console at WARNING+) and
+  `get_logger`. Idempotent; lazy `%`-formatting; never logs secrets.
+- `config/settings.py` — frozen `Settings` with `from_env()`, derived directory `@property`s, and
+  `ensure_directories()`. Fields: `data_dir`, `cache_ttl_seconds`, `usd_to_toman_rate`,
+  `crypto_api_key`, `football_api_key`.
+- `models/crypto.py` — `Coin` enum (BTC/ETH/SOL carrying symbol + full name) and frozen `CryptoPrice`
+  with construction-time validation.
+- `models/football.py` — frozen `Team`, `Match`, `Tournament` and a `MatchStatus` enum
+  (SCHEDULED/LIVE/FINISHED). Invariant: scores exist iff the match has started. `Tournament.matches`
+  is a tuple (honest immutability).
+- `storage/base_repository.py` — abstract `BaseRepository` (`save`/`load`/`exists`/`delete`); the
+  migration seam (ADR-002).
+- `storage/json_repository.py` — `JSONRepository`: atomic writes (temp file + `os.replace` + fsync),
+  the `{fetched_at, schema_version, data}` envelope, key-safety regex, schema-version mismatch →
+  treated as missing, `OSError`/`json` → `StorageError`.
+- `clients/base_client.py` — `BaseAPIClient`: shared `requests.Session`, `(5s, 15s)` timeouts,
+  urllib3 `Retry` (backoff 0.5, statuses {429,500,502,503,504}, GET only), every `requests`
+  exception → `APIError`. Context-manager support.
+- `clients/crypto_client.py` — CoinGecko `/simple/price` adapter; maps to `CryptoPrice`; derives
+  Toman from the injected USD→Toman rate (ADR-005); optional demo-key header.
+- `clients/football_client.py` — Football-Data.org v4 `/competitions/WC/matches` adapter; status
+  map; defensive per-match parsing (a single bad match is skipped, a structural break raises);
+  point-of-use API-key validation.
+- `services/cache_policy.py` — shared `is_fresh(envelope, ttl)`; missing/unparseable `fetched_at`
+  is treated as stale (safe default). Extracted to keep both services from drifting.
+- `services/crypto_service.py` / `services/football_service.py` — cache-then-fetch with TTL and
+  offline fallback (ADR-006); client + repository injected; cache deserialization re-runs model
+  validation.
+- `presentation/renderers.py` — pure `rich` tables for prices and matches (colour-coded change and
+  status). No logic, no I/O.
+- `presentation/menu.py` — interactive loop dispatching to services; `ConfigError` shown as
+  "Unavailable", any other `AppError` shown as a friendly line.
+- `main.py` — composition root: settings → directories → logging → repository + clients → services
+  → menu. Degrades gracefully when `FOOTBALL_API_KEY` is absent via an unavailable-client stand-in
+  (TD-10).
 
-**Issue #10 — `src/app/utils/logger.py` (centralized logging).**
-`setup_logging(log_dir, *, console_level=WARNING, file_level=DEBUG)` configures the **root** logger
-**once**. Root level is `DEBUG` (permissive gate); the two handlers do the filtering:
-- Rotating file handler → `<log_dir>/app.log`, DEBUG and up, ~1 MB rollover, 3 backups, verbose format
-  (`timestamp | level | logger name | message`).
-- Console handler → WARNING and up only, terse format (`level | message`), so routine INFO/DEBUG
-  never clutters the CLI.
-Idempotent via `root_logger.handlers.clear()` before re-adding (prevents duplicate-line bug on
-repeated calls). `get_logger(name)` is a thin wrapper over `logging.getLogger` so the codebase
-depends on our `utils`, not `logging` directly. Logging calls must use lazy `%`-style formatting
-(`logger.info("x=%s", v)`), never f-strings.
-
-**Issue #11 — `src/app/config/settings.py` (frozen settings loader).**
-`Settings` is a `@dataclass(frozen=True)` — immutable after load. `Settings.from_env()` is the
-alternative constructor: it calls `load_dotenv()`, reads env vars with defaults, validates, and
-translates malformed values into `ConfigError` (with `from exc` chaining). Fields: `data_dir`,
-`cache_ttl_seconds`, `crypto_api_key`, `football_api_key`. Subdirectory paths (`cache_dir`,
-`settings_dir`, `history_dir`, `logs_dir`) are `@property` methods **derived from `data_dir`** — one
-source of truth. `ensure_directories()` creates all runtime folders idempotently
-(`mkdir(parents=True, exist_ok=True)`) — this is the concrete implementation of ADR-006 (runtime
-directories are created, never assumed, so a fresh clone works).
-*Verified:* immutability raises `FrozenInstanceError` on reassignment; a bad `CACHE_TTL_SECONDS`
-raises `ConfigError` (not `ValueError`) in REPL.
-
-**Defaults:** `DATA_DIR` → `data`; `CACHE_TTL_SECONDS` → `300`. API keys default to `""` and are
-**not** validated at load time — validation is deferred to the point of use in the clients (M4),
-so the app is runnable through M1–M3 without keys.
+### Verification state (run from a Python 3.12 venv)
+- **Tests: 52 passing** (`tests/test_config.py` 8, `tests/test_models.py` 24,
+  `tests/test_storage.py` 9, `tests/test_services.py` 11). No test touches a live API or the real
+  filesystem outside a `tmp_path` fixture.
+  > Note: earlier docs cite "41 tests"; the suite has since grown to 52 (config tests added with the
+  > `usd_to_toman_rate` fix). The CHANGELOG / release note figure is stale on this point.
+- **`ruff check .`** — clean. **`mypy --strict src`** — clean (24 source files).
+- **End-to-end** — menu paths verified, including the offline-fallback path against a downed network.
 
 ---
 
-## 3. Architecture & verification state
+## 3. Known issues found at this handoff (read before continuing)
 
-### The `main.py` startup sequence (the composition root)
-`src/app/main.py` wires the foundation in a deliberately ordered sequence. Ordering is significant
-and is the "anti-fragile" property of startup:
-
-1. **Load settings** — `Settings.from_env()`. If it raises `ConfigError`, print the message to
-   **stderr** (logging is not configured yet, so we cannot log it) and `sys.exit(1)`. The handler
-   catches **only** `ConfigError` — unexpected exceptions are deliberately left to surface so real
-   bugs crash loudly rather than being swallowed.
-2. **Ensure directories** — `settings.ensure_directories()`, before logging writes anything.
-3. **Configure logging** — `setup_logging(settings.logs_dir)`.
-4. **Emit startup log** — `get_logger(__name__).info(...)` with lazy `%`-formatting.
-5. Show the `rich` banner ("Foundation initialized successfully!") only after a clean start.
-
-`main.py` is the one place permitted to import across multiple layers — that is correct for a
-composition root, not a boundary violation. It will grow as services/clients/menu are added (the
-seed of TD-03, manual wiring), which is acceptable until it becomes unwieldy.
-
-### Smoke tests performed and passed
-- **Happy path:** `crypto-wc` shows only the `rich` banner on screen; the startup `INFO` line
-  appears in `data/logs/app.log` but **not** on the console — proving the dual-handler level routing
-  (file = DEBUG+, console = WARNING+) works as designed.
-- **Graceful failure:** `CACHE_TTL_SECONDS=abc crypto-wc` prints `Configuration error: ...` to
-  stderr, shows no banner, and exits with status `1` (confirmed via `echo $?`). No traceback —
-  fails loud but clean.
-- **Runtime-directory correction (ADR-006):** deleting `data/{cache,settings,history,logs}` and
-  re-running recreates all four folders and runs cleanly — proving the app stands up its own
-  runtime structure on a fresh checkout.
+1. **Merge-conflict markers in `tests/test_services.py`.** A PR-#16 merge left raw
+   `<<<<<<< / ======= / >>>>>>>` markers in the `SETTINGS` literal, which was a *syntax error* —
+   the entire pytest suite failed to collect, despite the docs claiming green tests. Resolve by
+   keeping the `usd_to_toman_rate=90_000.0` line (the field is required on `Settings`).
+   **Lesson:** the V1 "all green" claim in the CHANGELOG and release note was not actually true on
+   `main`. Always run the suite; never trust the doc.
+2. **Stray artifacts.** `cryptowcreview.patch` (a committed review patch) and
+   `docs/developments/M0` (an empty 0-byte file beside `M0.md`) are accidental cruft — delete them.
+3. **TD-09 / TD-10 (client-side DIP seam incomplete).** Services and `main.py` depend on *concrete*
+   client classes; the test fakes need a `# type: ignore[arg-type]`, and `main.py` carries an ad-hoc
+   `_UnavailableFootballClient` stand-in. See §5.
 
 ---
 
 ## 4. Conventions the next session must preserve
 
 - **Mentoring loop:** for each issue — explain the concept and any new Python features, present an
-  implementation plan, give the complete file, then review the result against the checklist and note
-  any deliberate seams/debt. Readability over cleverness. One question at a time when clarifying.
+  implementation plan, give the complete file, then review against the checklist and note any
+  deliberate seams/debt. Readability over cleverness. One question at a time when clarifying.
 - **Exception translation at boundaries:** clients raise `APIError`; storage raises `StorageError`;
   config raises `ConfigError`. Never let `requests` / `json` / `OSError` leak upward. Use `from exc`.
 - **Logging:** module-level `get_logger(__name__)`; configure only in `main.py`; lazy `%` formatting;
   never log secrets.
-- **Config:** nothing reads `os.environ` except `settings.py`. Inject `Settings`; don't reach for globals.
-- **Money:** `float` in V1 (ADR-009, debt TD-02). **Coins are exactly BTC, ETH, SOL** — scope is frozen.
-- **Workflow:** one feature branch per issue (`phase-N/<short-desc>`), Conventional Commits
-  (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`), PR into protected `main`, "Closes #N".
-- **Skills/tooling:** before writing files, run Ruff (`ruff check .`, `ruff format .`), `mypy src`,
-  and `pytest`. Keep lines ≤ 88. Full type hints; mypy is strict.
-- **Scope discipline:** do not add features, dependencies, or abstractions beyond the current issue.
-  Build the seam, not the speculative feature. Record any compromise in the debt register.
+- **Config:** nothing reads `os.environ` except `settings.py`. Inject `Settings`; don't use globals.
+- **Money:** `float` in V1 (ADR-009, debt TD-02). **Coins are exactly BTC, ETH, SOL** — V1 frozen.
+- **Workflow:** one feature branch per issue, Conventional Commits, PR into protected `main`.
+- **Quality gates before any PR:** `ruff check .`, `ruff format .`, `mypy --strict src`, and
+  `pytest` — **all green**, run on Python 3.12 (the project requires `>=3.12`; a 3.11 interpreter
+  cannot even install it).
+- **Scope discipline:** build the seam, not the speculative feature. Record any compromise in the
+  debt register (`architecture.md` §8).
 
 ---
 
 ## 5. Precise next steps — where to pick up the knife
 
-**Milestone M2 — Domain Models.** Goal: model the domain as typed dataclasses so every layer above
-passes typed objects, not raw dicts. No external calls, no storage — pure data definitions. Both
-issues depend only on M0 scaffolding and can be done in either order; recommend #12 first.
+V1 is shipped, so the next work is **V2** (or pre-V2 cleanup). Cheapest high-value items first:
 
-### Issue #12 — `src/app/models/crypto.py` (do first) — 🟢 ~25 min
-Define the cryptocurrency domain types:
-- A coin identifier enum (the three supported coins: BTC, ETH, SOL — frozen scope) carrying symbol
-  and full name.
-- A `CryptoPrice` dataclass with: `symbol` (str), `name` (str), `price_usd` (float), `price_toman`
-  (float), `change_24h` (float, percentage), `last_updated` (datetime).
-- Money is `float` per ADR-009. Use type hints throughout. Consider `@dataclass(frozen=True)` for
-  immutability consistency with `Settings` — discuss the trade-off in the plan before deciding.
+### Immediate cleanup
+- Delete `cryptowcreview.patch` and the empty `docs/developments/M0` file.
+- Reconcile the test-count figure (52, not 41) in `CHANGELOG.md` and `v1-release-note.md`.
+- Add a minimal CI workflow (ruff + mypy + pytest on push) — the single guard that would have caught
+  the conflict-marker bug before merge (currently deferred as TD-05).
 
-### Issue #13 — `src/app/models/football.py` — 🟡 ~30 min
-Define the football domain types:
-- `Team` (name; optional code/id).
-- `MatchStatus` enum: SCHEDULED / LIVE / FINISHED.
-- `Match` (home `Team`, away `Team`, optional `home_score`/`away_score` as `Optional[int]`, kickoff
-  `datetime`, `status`).
-- `Tournament` (name, `list[Match]`, tournament-progress info such as current stage/round).
+### V2 — the storage swap (the headline migration the architecture was built for)
+1. **TD-09 / TD-10 first (small, enabling refactor).** Extract `CryptoClientProtocol` /
+   `FootballClientProtocol` (`typing.Protocol`) and type the services and `main.py` against them.
+   This removes the `# type: ignore[arg-type]` in `tests/test_services.py` and lets
+   `_UnavailableFootballClient` implement a real interface. It completes the DIP seam on the client
+   side, mirroring what `BaseRepository` already does for storage.
+2. **TD-01 — `SQLiteRepository`.** Implement the existing `BaseRepository` contract against
+   `sqlite3`. Services must not change — that is the proof the seam was worth it. Reuse the storage
+   test suite by parametrizing it over both repository implementations.
+3. **TD-02 — money to `Decimal`.** Migrate `CryptoPrice` monetary fields alongside the DB work.
+4. **TD-04 — a real USD→Toman rate source** instead of the static fallback.
 
-**Reminder for M2:** these models become the mapping target for the API clients in M4 and the
-serialization payload for the JSON repository in M3, so field names chosen here ripple forward — name
-them well. The JSON envelope (`{fetched_at, schema_version, data}`) and datetime serialization are
-M3 concerns, not M2; keep these files to pure model definitions.
-
-After M2 merges, proceed to **M3 (Storage Layer): #14 repository interface, then #15 JSON repository.**
+See [`roadmap.md`](roadmap.md) for the full V2–V6 arc and [`architecture.md`](architecture.md) §8.
 
 ---
 
 ## 6. Quick-start checklist for the new session
 
-1. Read `docs/architecture.md`, then this file, then `docs/taskbook.md`.
-2. Confirm local env: `pip install -e ".[dev]"`, then `crypto-wc` (should show the banner; startup
-   line lands in `data/logs/app.log`).
-3. Start Issue #12 with the standard loop: concept → plan → code → review.
-4. Branch `phase-2/crypto-models`; commit `feat: add cryptocurrency domain models`; PR "Closes #12".
+1. Read `architecture.md`, then this file, then `taskbook.md` and `v1-release-note.md`.
+2. Confirm a **Python 3.12** environment: `python3.12 -m venv .venv && source .venv/bin/activate`,
+   then `pip install -e ".[dev]"`.
+3. Run the gates: `ruff check .`, `mypy --strict src`, `pytest` — expect all green (52 tests).
+4. Run the app: `crypto-wc` (banner/menu appears; the startup INFO line lands in `data/logs/app.log`,
+   not the console). Crypto works with no keys; football needs `FOOTBALL_API_KEY`.
+5. Pick up from §5. Branch per issue; commit with Conventional Commits; PR into protected `main`.

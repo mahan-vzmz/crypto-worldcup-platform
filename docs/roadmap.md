@@ -5,11 +5,11 @@
 > [`taskbook.md`](taskbook.md). This document gives the strategic view: where the project is
 > going, what is built versus planned, and what is learned at each stage.
 >
-> **Verification note:** This roadmap is generated from the established project plan and
-> development conversation, not from a live repository audit. Milestone *completion* claims for
-> M0 and M1 reflect the development record; treat them as accurate to the last working session.
-> Everything from M2 onward is **Planned / Not Yet Implemented**.
-
+> **Status:** **V1.0.0 is complete.** All milestones M0–M7 are implemented and merged into a
+> protected `main`. This roadmap was reconciled against a live repository audit at V1 closeout:
+> the codebase, the test suite (52 tests green on Python 3.12, after fixing a merge-conflict marker
+> that had been blocking collection), and the tooling gates (`ruff`, `mypy --strict`) were all
+> verified directly. Everything from **V2 onward is Planned / Not Yet Implemented.**
 ---
 
 ## Project Vision
@@ -51,15 +51,14 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 
 | Milestone | Theme | Objective | Status |
 | --- | --- | --- | --- |
-| M0 | Bootstrap / Scaffolding | Establish a runnable, installable, tooled project skeleton | Completed |
-| M1 | Foundations | Cross-cutting utilities: exceptions, logging, configuration | Completed |
-| M2 | Domain Models | Typed dataclasses for crypto and football domains | Planned (next) |
-| M3 | Storage Layer | Repository interface + JSON implementation | Planned |
-| M4 | API Clients | Base HTTP client + crypto and football adapters | Planned |
-| M5 | Service Layer | Orchestration, caching, dependency injection | Planned |
-| M6 | Presentation | rich renderers + interactive menu, full wiring | Planned |
-| M7 | Tests & Docs | Unit tests across layers; final documentation | Planned |
-
+| M0 | Bootstrap / Scaffolding | Establish a runnable, installable, tooled project skeleton | ✅ Completed |
+| M1 | Foundations | Cross-cutting utilities: exceptions, logging, configuration | ✅ Completed |
+| M2 | Domain Models | Typed dataclasses for crypto and football domains | ✅ Completed |
+| M3 | Storage Layer | Repository interface + JSON implementation | ✅ Completed |
+| M4 | API Clients | Base HTTP client + crypto and football adapters | ✅ Completed |
+| M5 | Service Layer | Orchestration, caching, dependency injection | ✅ Completed |
+| M6 | Presentation | rich renderers + interactive menu, full wiring | ✅ Completed |
+| M7 | Tests & Docs | Unit tests across layers; final documentation | ✅ Completed |
 ---
 
 ## Milestone Status (detail)
@@ -83,16 +82,39 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Status detail:** completed and merged. Verified via REPL checks (Liskov substitution,
   immutability, `ConfigError` translation) and three startup smoke tests.
 
-### M2 - Domain Models (Planned, next)
-- **Objective:** define `CryptoPrice`/coin enum and `Team`/`Match`/`Tournament`/`MatchStatus` as
+### M2 - Domain Models (Completed)
+- **Objective:** define `CryptoPrice`/`Coin` enum and `Team`/`Match`/`Tournament`/`MatchStatus` as
   typed dataclasses.
-- **Status detail:** **Not Yet Implemented.** Issues #12 (crypto models) and #13 (football
-  models). No model files exist in the codebase yet.
+- **Status detail:** Delivered. Frozen, slotted dataclasses with construction-time validation; the
+  `Match` invariant (scores exist iff the match has started) and a tuple-typed `Tournament.matches`
+  enforce honest immutability.
 
-### M3-M7 (Planned)
-Storage, clients, services, presentation, and tests remain planned. See the Version Roadmap and
-[`taskbook.md`](taskbook.md) for the full breakdown.
+### M3 - Storage Layer (Completed)
+- **Objective:** an abstract `BaseRepository` plus a JSON implementation behind it (the migration seam).
+- **Status detail:** Delivered. `JSONRepository` writes atomically (temp file + `os.replace` + fsync),
+  wraps every record in a `{fetched_at, schema_version, data}` envelope, validates key names, and
+  translates `OSError`/`json` failures into `StorageError`.
 
+### M4 - API Clients (Completed)
+- **Objective:** a shared HTTP base client plus CoinGecko and Football-Data.org adapters.
+- **Status detail:** Delivered. `BaseAPIClient` owns session reuse, timeouts, backoff retries, and
+  `requests`→`APIError` translation; each adapter maps raw JSON into domain models (anti-corruption
+  layer) and validates its API key at point of use.
+
+### M5 - Service Layer (Completed)
+- **Objective:** cache-then-fetch orchestration with TTL staleness and offline fallback.
+- **Status detail:** Delivered. Both services share a `cache_policy.is_fresh` helper, depend on the
+  injected `BaseRepository` abstraction, and re-validate cached data through the models on read.
+
+### M6 - Presentation (Completed)
+- **Objective:** `rich` renderers and an interactive menu, fully wired in the composition root.
+- **Status detail:** Delivered. Pure renderers, an `AppError`-catching menu, and a `main.py` that
+  wires every layer in dependency order and degrades gracefully without a football key.
+
+### M7 - Tests & Documentation (Completed)
+- **Objective:** unit tests across layers with external boundaries mocked, plus final docs.
+- **Status detail:** Delivered. 52 tests (models, storage against a real `tmp_path`, services via
+  in-memory fakes, config) pass on Python 3.12; `ruff` and `mypy --strict` are clean.
 ---
 
 ## Version Roadmap (V1-V6)
@@ -100,7 +122,7 @@ Storage, clients, services, presentation, and tests remain planned. See the Vers
 > V1 is the current build target (M0-M7). V2-V6 are **Planned** future versions; their scope is
 > directional and will be re-specified when each is reached.
 
-### Version 1 - JSON-backed CLI (current target)
+### Version 1 - JSON-backed CLI ✅ *(shipped — V1.0.0)*
 - **Features:** crypto prices (USD, Toman, 24h change, timestamp) for BTC/ETH/SOL with refresh,
   single-coin, and all-coins views; football completed/upcoming matches with scores, times, teams,
   and tournament progress for one competition; JSON persistence; interactive `rich` CLI.
@@ -178,9 +200,9 @@ makes change cheap.
 | --- | --- | --- |
 | M0 | Packages vs. modules, `__init__.py`, `src/` layout, `pyproject.toml`, virtual environments, editable installs | Project structure, dependency management, tooling, Git workflow, branch protection |
 | M1 | Custom exception classes, inheritance, the `logging` module, handlers/formatters, `dataclass(frozen=True)`, `@classmethod`, `@property`, `os.getenv`, `python-dotenv`, exception chaining (`from exc`) | Exception-translation-at-boundaries, centralized configuration, separation of concerns, idempotent startup, fail-loud-but-clean |
-| M2 *(Planned)* | `dataclasses`, type hints, `Enum`, `Optional`, `datetime` | Domain modeling, typed objects over raw dicts |
-| M3 *(Planned)* | `abc` abstract base classes, `json`, context managers, atomic file writes | Repository pattern, dependency inversion, serialization |
-| M4 *(Planned)* | `requests`, sessions, timeouts, retry logic | Adapter pattern, defensive parsing, retry/backoff/timeout policy |
-| M5 *(Planned)* | Composition, constructor injection | Dependency injection, caching strategy, orchestration |
-| M6 *(Planned)* | `rich` tables/panels, input loops | Thin presentation layer, UI/logic separation |
-| M7 *(Planned)* | `pytest`, fixtures, mocking | Unit vs. integration testing, testing at boundaries |
+| M2  | `dataclasses`, type hints, `Enum`, `Optional`, `datetime` | Domain modeling, typed objects over raw dicts |
+| M3  | `abc` abstract base classes, `json`, context managers, atomic file writes | Repository pattern, dependency inversion, serialization |
+| M4  | `requests`, sessions, timeouts, retry logic | Adapter pattern, defensive parsing, retry/backoff/timeout policy |
+| M5  | Composition, constructor injection | Dependency injection, caching strategy, orchestration |
+| M6  | `rich` tables/panels, input loops | Thin presentation layer, UI/logic separation |
+| M7  | `pytest`, fixtures, mocking | Unit vs. integration testing, testing at boundaries |
