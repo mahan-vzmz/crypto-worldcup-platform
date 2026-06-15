@@ -1,4 +1,5 @@
 # Crypto & World Cup Information Platform
+[![CI](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml)
 
 A Python 3.12 terminal application that displays live cryptocurrency prices
 (BTC, ETH, SOL) and football tournament data, built as a portfolio-grade
