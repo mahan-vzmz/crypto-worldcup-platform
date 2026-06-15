@@ -11,7 +11,7 @@ V2 adds no new runtime dependency.
 """
 
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -71,7 +71,7 @@ class SQLiteRepository(BaseRepository):
             raise StorageError("failed to initialise the database") from exc
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
+    def _connect(self) -> Generator[sqlite3.Connection, None, None]:
         """Yield a connection, committing on success and rolling back on error.
 
         A fresh connection per operation keeps the CLI simple and avoids
