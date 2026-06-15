@@ -6,6 +6,7 @@ build services -> launch menu. main.py is the only module permitted to
 import across all layers (TD-03: manual wiring, acceptable for V1).
 """
 
+import logging
 import sys
 from pathlib import Path
 
@@ -13,7 +14,9 @@ from rich.console import Console
 
 from app.clients.crypto_client import CryptoClient
 from app.clients.football_client import FootballClient
+from app.clients.protocols import FootballClientProtocol
 from app.config.settings import Settings
+from app.models.football import Tournament
 from app.presentation.menu import Menu
 from app.services.crypto_service import CryptoService
 from app.services.football_service import FootballService
@@ -63,7 +66,9 @@ def main() -> None:
     Menu(crypto_service, football_service, console=console).run()
 
 
-def _build_football_client(settings: Settings, logger):  # type: ignore[no-untyped-def]
+def _build_football_client(
+    settings: Settings, logger: logging.Logger
+) -> FootballClientProtocol:
     """Construct the football client, deferring a missing-key failure
     to point of use so crypto still works without a football key."""
     try:
@@ -80,7 +85,7 @@ def _build_football_client(settings: Settings, logger):  # type: ignore[no-untyp
 class _UnavailableFootballClient:
     """Stand-in used when no football key is configured."""
 
-    def fetch_world_cup(self):  # type: ignore[no-untyped-def]
+    def fetch_world_cup(self) -> Tournament:
         raise ConfigError("FOOTBALL_API_KEY is not set; football data is unavailable")
 
 

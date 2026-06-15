@@ -100,8 +100,8 @@ class FakeCryptoClient:
 
 
 def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
-    # The fake client is structurally compatible; ignore the nominal type.
-    return CryptoService(client, repo, SETTINGS)  # type: ignore[arg-type]
+    # FakeCryptoClient structurally satisfies CryptoClientProtocol -- no cast needed.
+    return CryptoService(client, repo, SETTINGS)
 
 
 class TestFreshCacheHit:

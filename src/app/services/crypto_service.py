@@ -9,7 +9,7 @@ testable with fakes and no network or filesystem.
 from datetime import datetime
 from typing import Any
 
-from app.clients.crypto_client import CryptoClient
+from app.clients.protocols import CryptoClientProtocol
 from app.config.settings import Settings
 from app.models.crypto import Coin, CryptoPrice
 from app.services.cache_policy import is_fresh
@@ -27,7 +27,7 @@ class CryptoService:
 
     def __init__(
         self,
-        client: CryptoClient,
+        client: CryptoClientProtocol,
         repository: BaseRepository,
         settings: Settings,
     ) -> None:

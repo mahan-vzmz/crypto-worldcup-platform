@@ -9,7 +9,7 @@ an enum, and optional scores, so the mappers are correspondingly larger
 from datetime import datetime
 from typing import Any
 
-from app.clients.football_client import FootballClient
+from app.clients.protocols import FootballClientProtocol
 from app.config.settings import Settings
 from app.models.football import Match, MatchStatus, Team, Tournament
 from app.services.cache_policy import is_fresh
@@ -27,7 +27,7 @@ class FootballService:
 
     def __init__(
         self,
-        client: FootballClient,
+        client: FootballClientProtocol,
         repository: BaseRepository,
         settings: Settings,
     ) -> None:
