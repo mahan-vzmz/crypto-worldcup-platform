@@ -5,6 +5,8 @@ here takes typed models and produces something rich can print. This
 layer depends only on the models below it.
 """
 
+from decimal import Decimal
+
 from rich.table import Table
 from rich.text import Text
 
@@ -12,7 +14,7 @@ from app.models.crypto import Coin, CryptoPrice
 from app.models.football import Match, MatchStatus, Tournament
 
 
-def _format_change(change_24h: float) -> Text:
+def _format_change(change_24h: Decimal) -> Text:
     """Colour a 24h change green (up), red (down), or dim (flat)."""
     if change_24h > 0:
         return Text(f"+{change_24h:.2f}%", style="green")

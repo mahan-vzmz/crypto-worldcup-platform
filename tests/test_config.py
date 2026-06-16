@@ -5,6 +5,7 @@ ambient variable can leak in. These guard the composition root's contract:
 every field main.py reads must exist and validate.
 """
 
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -36,7 +37,7 @@ class TestDefaults:
         settings = Settings.from_env()
         assert settings.data_dir == Path("data")
         assert settings.cache_ttl_seconds == 300
-        assert settings.usd_to_toman_rate > 0
+        assert settings.usd_to_toman_rate > Decimal("0")
         assert settings.crypto_api_key == ""
         assert settings.football_api_key == ""
 
@@ -61,7 +62,7 @@ class TestOverrides:
 
         assert settings.data_dir == Path("/tmp/custom")
         assert settings.cache_ttl_seconds == 60
-        assert settings.usd_to_toman_rate == 100000.5
+        assert settings.usd_to_toman_rate == Decimal("100000.5")
         assert settings.crypto_api_key == "ck"
         assert settings.football_api_key == "fk"
 
@@ -104,7 +105,7 @@ class TestDirectories:
         settings = Settings(
             data_dir=tmp_path / "data",
             cache_ttl_seconds=300,
-            usd_to_toman_rate=90_000.0,
+            usd_to_toman_rate=Decimal("90000.0"),
             crypto_api_key="",
             football_api_key="",
         )

@@ -63,7 +63,7 @@ disabled, the app served cached prices and logged the fallback exactly as design
 
 ## 4. Quality at release
 
-- **Tests:** 41 passing. Domain-model invariants; the JSON repository against a real temporary
+- **Tests:** 52 passing. Domain-model invariants; the JSON repository against a real temporary
   directory (round-trip, corruption, future-schema, idempotent delete, unsafe-key rejection); and
   all four service orchestration branches via in-memory fakes. No test touches a live API or the
   real filesystem outside its fixture — the repository ABC is what makes those fakes trivial.
@@ -84,7 +84,7 @@ to a V2 effort, roughly in the order a V2 would address them:
 2. **TD-09 / TD-10 — the client-side DIP seam is incomplete.** Services depend on concrete client
    classes, and `main.py` carries an ad-hoc unavailable-client stand-in. Extracting
    `CryptoClientProtocol` / `FootballClientProtocol` removes a test `type: ignore` and lets the
-   stand-in implement a real interface. A small, high-value early-V2 refactor.
+   stand-in implement a real interface. A small, high-value early-V2 refactor. 
 3. **TD-02 — money as `float`.** Migrate to `Decimal` alongside the database work, where values
    may start driving arithmetic.
 4. **TD-04 — approximate Toman rate.** Adopt a proper rate source.

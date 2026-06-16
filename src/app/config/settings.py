@@ -15,6 +15,7 @@ where the gitignored runtime folders do not yet exist.
 
 import os
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,7 +27,7 @@ _DEFAULT_CACHE_TTL_SECONDS = 300
 #: Approximate USD->Toman fallback rate (ADR-005 / TD-04). Deliberately a
 #: static, clearly-approximate default; the environment overrides it, and a
 #: proper rate source is deferred to a future version.
-_DEFAULT_USD_TO_TOMAN_RATE = 90_000.0
+_DEFAULT_USD_TO_TOMAN_RATE = Decimal("90000.0")
 
 
 @dataclass(frozen=True)
@@ -47,7 +48,7 @@ class Settings:
 
     data_dir: Path
     cache_ttl_seconds: int
-    usd_to_toman_rate: float
+    usd_to_toman_rate: Decimal
     crypto_api_key: str
     football_api_key: str
 
@@ -111,8 +112,8 @@ class Settings:
 
         raw_rate = os.getenv("USD_TO_TOMAN_RATE", str(_DEFAULT_USD_TO_TOMAN_RATE))
         try:
-            usd_to_toman_rate = float(raw_rate)
-        except ValueError as exc:
+            usd_to_toman_rate = Decimal(raw_rate)
+        except Exception as exc:
             raise ConfigError(
                 f"USD_TO_TOMAN_RATE must be a number, got {raw_rate!r}."
             ) from exc

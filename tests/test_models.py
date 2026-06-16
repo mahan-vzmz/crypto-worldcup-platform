@@ -6,6 +6,7 @@ depend only on the standard library.
 
 from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import pytest
 
@@ -21,9 +22,9 @@ def make_price(**overrides: object) -> CryptoPrice:
     defaults: dict[str, object] = {
         "symbol": "BTC",
         "name": "Bitcoin",
-        "price_usd": 65_000.0,
-        "price_toman": 4_500_000_000.0,
-        "change_24h": 2.5,
+        "price_usd": Decimal("65000.0"),
+        "price_toman": Decimal("4500000000.0"),
+        "change_24h": Decimal("2.5"),
         "last_updated": NOW,
     }
     defaults.update(overrides)
@@ -59,18 +60,18 @@ class TestCryptoPrice:
     def test_happy_path_construction(self) -> None:
         price = make_price()
         assert price.symbol == "BTC"
-        assert price.price_usd == 65_000.0
+        assert price.price_usd == Decimal("65000.0")
 
     def test_negative_change_is_valid(self) -> None:
-        assert make_price(change_24h=-3.2).change_24h == -3.2
+        assert make_price(change_24h=Decimal("-3.2")).change_24h == Decimal("-3.2")
 
     def test_negative_price_usd_raises(self) -> None:
         with pytest.raises(ValueError):
-            make_price(price_usd=-10.0)
+            make_price(price_usd=Decimal("-10.0"))
 
     def test_negative_price_toman_raises(self) -> None:
         with pytest.raises(ValueError):
-            make_price(price_toman=-1.0)
+            make_price(price_toman=Decimal("-1.0"))
 
     def test_empty_symbol_raises(self) -> None:
         with pytest.raises(ValueError):
@@ -83,13 +84,13 @@ class TestCryptoPrice:
     def test_mutation_raises(self) -> None:
         price = make_price()
         with pytest.raises(FrozenInstanceError):
-            price.price_usd = 200.0  # type: ignore[misc]
+            price.price_usd = Decimal("200.0")  # type: ignore[misc]
 
     def test_replace_creates_new_valid_object(self) -> None:
         original = make_price()
-        updated = replace(original, price_usd=70_000.0)
-        assert updated.price_usd == 70_000.0
-        assert original.price_usd == 65_000.0
+        updated = replace(original, price_usd=Decimal("70000.0"))
+        assert updated.price_usd == Decimal("70000.0")
+        assert original.price_usd == Decimal("65000.0")
 
 
 class TestTeam:

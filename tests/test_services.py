@@ -7,6 +7,7 @@ FakeCryptoClient structurally satisfies CryptoClientProtocol (no inheritance).
 """
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -23,7 +24,7 @@ SETTINGS = Settings(
     crypto_api_key="dummy_crypto",
     football_api_key="dummy_football",
     cache_ttl_seconds=300,
-    usd_to_toman_rate=90_000.0,
+    usd_to_toman_rate=Decimal("90000.0"),
 )
 COINS = [Coin.BTC]
 
@@ -32,9 +33,9 @@ def a_price() -> CryptoPrice:
     return CryptoPrice(
         symbol="BTC",
         name="Bitcoin",
-        price_usd=65_000.0,
-        price_toman=4_500_000_000.0,
-        change_24h=2.5,
+        price_usd=Decimal("65000.0"),
+        price_toman=Decimal("4500000000.0"),
+        change_24h=Decimal("2.5"),
         last_updated=datetime.now(UTC),
     )
 

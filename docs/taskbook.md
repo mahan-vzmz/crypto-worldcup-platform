@@ -140,7 +140,7 @@
 - [x] **#27 — Finalize README and architecture docs** — 🟢 · 30 min
   README updated to full V1 usage; ADRs reconciled; CHANGELOG released.
 
-> **M7 closeout:** 41 tests green. Ruff clean, mypy strict passing. End-to-end
+> **M7 closeout:** 52 tests green. Ruff clean, mypy strict passing. End-to-end
 > run verified including the offline-fallback path against a downed network.
 
 ---

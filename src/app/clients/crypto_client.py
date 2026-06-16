@@ -10,6 +10,7 @@ PROVISIONAL SPEC ASSUMPTIONS (verify against docs/taskbook.md):
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from app.clients.base_client import DEFAULT_TIMEOUT, BaseAPIClient
@@ -36,7 +37,7 @@ class CryptoClient(BaseAPIClient):
     def __init__(
         self,
         *,
-        usd_to_toman_rate: float,
+        usd_to_toman_rate: Decimal,
         api_key: str = "",
         timeout: tuple[float, float] = DEFAULT_TIMEOUT,
         max_retries: int = 3,
@@ -85,8 +86,8 @@ class CryptoClient(BaseAPIClient):
         if not isinstance(entry, dict) or "usd" not in entry:
             raise APIError(f"CoinGecko response missing data for {coin.symbol}")
         try:
-            price_usd = float(entry["usd"])
-            change_24h = float(entry.get("usd_24h_change", 0.0))
+            price_usd = Decimal(str(entry["usd"]))
+            change_24h = Decimal(str(entry.get("usd_24h_change", "0.0")))
         except (TypeError, ValueError) as exc:
             raise APIError(
                 f"CoinGecko returned non-numeric data for {coin.symbol}"

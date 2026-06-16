@@ -14,6 +14,7 @@ import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from app.models.crypto import CryptoPrice
@@ -103,9 +104,9 @@ class SQLiteRepository(BaseRepository):
                         (
                             p.symbol,
                             p.name,
-                            p.price_usd,
-                            p.price_toman,
-                            p.change_24h,
+                            str(p.price_usd),
+                            str(p.price_toman),
+                            str(p.change_24h),
                             p.last_updated.isoformat(),
                             fetched_at,
                         )
@@ -216,9 +217,9 @@ class SQLiteRepository(BaseRepository):
         return CryptoPrice(
             symbol=row["symbol"],
             name=row["name"],
-            price_usd=row["price_usd"],
-            price_toman=row["price_toman"],
-            change_24h=row["change_24h"],
+            price_usd=Decimal(str(row["price_usd"])),
+            price_toman=Decimal(str(row["price_toman"])),
+            change_24h=Decimal(str(row["change_24h"])),
             last_updated=datetime.fromisoformat(row["last_updated"]),
         )
 

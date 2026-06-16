@@ -6,6 +6,7 @@ time. No knowledge of APIs, storage, or presentation.
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 
 
@@ -31,14 +32,14 @@ class CryptoPrice:
 
     Immutable by design: a new observation is a new object
     (use ``dataclasses.replace`` for modified copies).
-    Money is ``float`` per ADR-009 (tracked debt TD-02).
+    Money is ``Decimal`` (TD-02 resolved).
     """
 
     symbol: str
     name: str
-    price_usd: float
-    price_toman: float
-    change_24h: float
+    price_usd: Decimal
+    price_toman: Decimal
+    change_24h: Decimal
     last_updated: datetime
 
     def __post_init__(self) -> None:
