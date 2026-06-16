@@ -5,7 +5,6 @@ ambient variable can leak in. These guard the composition root's contract:
 every field main.py reads must exist and validate.
 """
 
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -17,7 +16,6 @@ from app.utils.exceptions import ConfigError
 _ENV_VARS = (
     "DATA_DIR",
     "CACHE_TTL_SECONDS",
-    "USD_TO_TOMAN_RATE",
     "CRYPTO_API_KEY",
     "FOOTBALL_API_KEY",
 )
@@ -37,14 +35,13 @@ class TestDefaults:
         settings = Settings.from_env()
         assert settings.data_dir == Path("data")
         assert settings.cache_ttl_seconds == 300
-        assert settings.usd_to_toman_rate > Decimal("0")
         assert settings.crypto_api_key == ""
         assert settings.football_api_key == ""
 
     def test_every_field_main_reads_is_present(self, clean_env: None) -> None:
         # Regression guard: main.py wires these exact attributes.
         settings = Settings.from_env()
-        for attr in ("usd_to_toman_rate", "cache_ttl_seconds", "data_dir"):
+        for attr in ("cache_ttl_seconds", "data_dir"):
             assert hasattr(settings, attr)
 
 
@@ -54,7 +51,6 @@ class TestOverrides:
     ) -> None:
         monkeypatch.setenv("DATA_DIR", "/tmp/custom")
         monkeypatch.setenv("CACHE_TTL_SECONDS", "60")
-        monkeypatch.setenv("USD_TO_TOMAN_RATE", "100000.5")
         monkeypatch.setenv("CRYPTO_API_KEY", "ck")
         monkeypatch.setenv("FOOTBALL_API_KEY", "fk")
 
@@ -62,7 +58,6 @@ class TestOverrides:
 
         assert settings.data_dir == Path("/tmp/custom")
         assert settings.cache_ttl_seconds == 60
-        assert settings.usd_to_toman_rate == Decimal("100000.5")
         assert settings.crypto_api_key == "ck"
         assert settings.football_api_key == "fk"
 
@@ -84,28 +79,12 @@ class TestValidation:
         with pytest.raises(ConfigError):
             Settings.from_env()
 
-    def test_non_numeric_rate_raises(
-        self, clean_env: None, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("USD_TO_TOMAN_RATE", "free")
-        with pytest.raises(ConfigError):
-            Settings.from_env()
-
-    @pytest.mark.parametrize("bad", ["0", "-50000"])
-    def test_non_positive_rate_raises(
-        self, clean_env: None, monkeypatch: pytest.MonkeyPatch, bad: str
-    ) -> None:
-        monkeypatch.setenv("USD_TO_TOMAN_RATE", bad)
-        with pytest.raises(ConfigError):
-            Settings.from_env()
-
 
 class TestDirectories:
     def test_ensure_directories_creates_all(self, tmp_path: Path) -> None:
         settings = Settings(
             data_dir=tmp_path / "data",
             cache_ttl_seconds=300,
-            usd_to_toman_rate=Decimal("90000.0"),
             crypto_api_key="",
             football_api_key="",
         )

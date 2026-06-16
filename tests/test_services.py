@@ -24,7 +24,6 @@ SETTINGS = Settings(
     crypto_api_key="dummy_crypto",
     football_api_key="dummy_football",
     cache_ttl_seconds=300,
-    usd_to_toman_rate=Decimal("90000.0"),
 )
 COINS = [Coin.BTC]
 
@@ -90,8 +89,9 @@ class FakeCryptoClient:
         return self._prices
 
 
-def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
-    # FakeCryptoClient structurally satisfies CryptoClientProtocol -- no cast needed.
+def build_service(
+    client: FakeCryptoClient, repo: FakeRepository
+) -> CryptoService:
     return CryptoService(client, repo, SETTINGS)
 
 

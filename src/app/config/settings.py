@@ -15,7 +15,6 @@ where the gitignored runtime folders do not yet exist.
 
 import os
 from dataclasses import dataclass
-from decimal import Decimal
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -24,10 +23,7 @@ from app.utils.exceptions import ConfigError
 
 _DEFAULT_DATA_DIR = "data"
 _DEFAULT_CACHE_TTL_SECONDS = 300
-#: Approximate USD->Toman fallback rate (ADR-005 / TD-04). Deliberately a
-#: static, clearly-approximate default; the environment overrides it, and a
-#: proper rate source is deferred to a future version.
-_DEFAULT_USD_TO_TOMAN_RATE = Decimal("90000.0")
+_DEFAULT_CACHE_TTL_SECONDS = 300
 
 
 @dataclass(frozen=True)
@@ -37,9 +33,6 @@ class Settings:
     Attributes:
         data_dir: Root directory for all runtime data (cache, logs, etc.).
         cache_ttl_seconds: How long cached API data is considered fresh.
-        usd_to_toman_rate: USD->Toman conversion rate used to derive the Toman
-            price (ADR-005 / TD-04). A clearly-approximate fallback that the
-            environment may override.
         crypto_api_key: API key for the cryptocurrency provider. May be empty in
             Version 1 until the client is implemented (Milestone M4).
         football_api_key: API key for the football provider. May be empty until
@@ -48,7 +41,6 @@ class Settings:
 
     data_dir: Path
     cache_ttl_seconds: int
-    usd_to_toman_rate: Decimal
     crypto_api_key: str
     football_api_key: str
 
@@ -90,8 +82,7 @@ class Settings:
 
         Raises:
             ConfigError: If ``CACHE_TTL_SECONDS`` is set but not a positive
-                integer, or ``USD_TO_TOMAN_RATE`` is set but not a positive
-                number.
+                integer.
         """
         load_dotenv()
 
@@ -110,23 +101,9 @@ class Settings:
                 f"CACHE_TTL_SECONDS must be positive, got {cache_ttl_seconds}."
             )
 
-        raw_rate = os.getenv("USD_TO_TOMAN_RATE", str(_DEFAULT_USD_TO_TOMAN_RATE))
-        try:
-            usd_to_toman_rate = Decimal(raw_rate)
-        except Exception as exc:
-            raise ConfigError(
-                f"USD_TO_TOMAN_RATE must be a number, got {raw_rate!r}."
-            ) from exc
-
-        if usd_to_toman_rate <= 0:
-            raise ConfigError(
-                f"USD_TO_TOMAN_RATE must be positive, got {usd_to_toman_rate}."
-            )
-
         return cls(
             data_dir=data_dir,
             cache_ttl_seconds=cache_ttl_seconds,
-            usd_to_toman_rate=usd_to_toman_rate,
             crypto_api_key=os.getenv("CRYPTO_API_KEY", ""),
             football_api_key=os.getenv("FOOTBALL_API_KEY", ""),
         )

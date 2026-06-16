@@ -51,7 +51,6 @@ def main() -> None:
     # 4. Build the data layer: one repository, two API clients.
     repository = SQLiteRepository(db_path=settings.db_path)
     crypto_client = CryptoClient(
-        usd_to_toman_rate=settings.usd_to_toman_rate,
         api_key=settings.crypto_api_key,
     )
 
