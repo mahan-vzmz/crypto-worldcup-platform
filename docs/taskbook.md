@@ -178,6 +178,18 @@
 
 ---
 
+## Milestone V4 — FastAPI REST API
+**Epic:** Web Presentation Layer · **Status:** ✅ Complete
+
+- [x] **Dependencies** — Added `fastapi` and `uvicorn`.
+- [x] **API Core** — Created `api/main.py` (FastAPI app) and `api/dependencies.py` (IoC Container bridging).
+- [x] **Routers** — Added `/crypto` and `/football` routes.
+- [x] **API Tests** — Added `tests/api/test_routes.py` with `fastapi.testclient.TestClient`.
+
+> **V4 status:** All tasks completed! 54 tests green. API exposes existing services without any service layer modifications.
+
+---
+
 ## Definition of Done (V1) — met
 
 Full criteria in [`architecture.md`](architecture.md) §7. Verified at release:

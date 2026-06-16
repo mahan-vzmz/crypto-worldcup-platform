@@ -181,6 +181,13 @@ Each ADR records the *reasoning* behind a load-bearing decision, not merely the 
 - **Final decision:** **Custom `Container` class**.
 - **Rationale:** Maximizes learning without adding external bloat.
 
+### ADR-014 — API Response Models using native Dataclasses
+- **Context:** FastAPI typically uses Pydantic models (`BaseModel`) for defining request/response schemas. V4 exposed the existing services via REST.
+- **Options considered:** (a) Wrap domain `dataclasses` in Pydantic `BaseModel`s; (b) Use the existing standard `dataclass`es directly as `response_model`s.
+- **Trade-offs:** Pydantic models are FastAPI's native language, offering extensive validation. However, FastAPI (via Pydantic's core) natively supports standard library `dataclass`es. Creating duplicate Pydantic models solely for output would violate DRY without adding value, given the models are read-only at the API boundary.
+- **Final decision:** **Use existing `dataclass`es natively.**
+- **Rationale:** Simplifies the codebase, avoids redundant schema definitions, and proves that clean domain models don't need web-framework-specific wrappers just to be serialized.
+
 ### Remaining open questions
 All three live external-provider questions — crypto endpoint terms (ADR-003), football competition
 selection (ADR-004), and Toman rate source (ADR-005) — are deliberately deferred to **Milestone M4**,

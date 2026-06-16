@@ -15,6 +15,7 @@
 > have landed. Remaining V2 work (`float`→`Decimal` TD-02 and native Wallex Toman rate source TD-04)
 > are also fully shipped!
 > **V3.0.0 is complete.** The OOP and service refactoring is fully implemented, introducing the `Result` type, `CacheStrategyProtocol`, and a DI Container.
+> **V4.0.0 is complete.** The FastAPI REST API presentation layer was added, proving the architecture's decoupling by reusing existing services untouched.
 ---
 
 ## Project Vision
@@ -158,12 +159,13 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Technologies introduced:** design-pattern refinements.
 - **Learning objectives:** deeper SOLID application, refactoring discipline.
 
-### Version 4 - FastAPI REST API *(Planned)*
+### Version 4 - FastAPI REST API ✅ *(shipped — V4.0.0)*
+- **Status:** Complete. We added `fastapi` and `uvicorn`, created an `api/` presentation layer with routers, and tested it comprehensively using `TestClient`.
 - **Features:** expose the existing services over HTTP.
 - **Architectural changes:** a new presentation layer (HTTP routes) reusing the *same* services -
   the central proof that the layering was worth it.
-- **Technologies introduced:** FastAPI, Pydantic, Uvicorn (ASGI).
-- **Learning objectives:** REST design, request validation, the web request lifecycle.
+- **Technologies introduced:** FastAPI, Pydantic (implicitly via FastAPI), Uvicorn (ASGI).
+- **Learning objectives:** REST design, request validation, the web request lifecycle, API testing.
 
 ### Version 5 - Web Dashboard *(Planned)*
 - **Features:** a browser UI consuming the V4 API.
