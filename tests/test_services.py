@@ -89,9 +89,7 @@ class FakeCryptoClient:
         return self._prices
 
 
-def build_service(
-    client: FakeCryptoClient, repo: FakeRepository
-) -> CryptoService:
+def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
     return CryptoService(client, repo, SETTINGS)
 
 

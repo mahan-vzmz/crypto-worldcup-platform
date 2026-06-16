@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 
 WALLEX_BASE_URL = "https://api.wallex.ir/v1"
 
+
 class CryptoClient(BaseAPIClient):
     """Fetches and maps cryptocurrency prices from Wallex into domain models."""
 
@@ -62,10 +63,7 @@ class CryptoClient(BaseAPIClient):
             raise APIError("Wallex 'symbols' is not a dictionary")
 
         fetched_at = datetime.now(UTC)
-        return [
-            self._map_entry(coin, symbols, fetched_at)
-            for coin in coins
-        ]
+        return [self._map_entry(coin, symbols, fetched_at) for coin in coins]
 
     def _map_entry(
         self,
