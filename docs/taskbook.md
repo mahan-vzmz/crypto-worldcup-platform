@@ -160,10 +160,10 @@
   and a new menu option.
 - [x] **Tests** — SQLite repository suite (`tests/test_sqlite_repository.py`); service fake updated
   to the new interface; config tests isolated from a real `.env`. JSON repo + its tests retired.
-- [ ] **Money → `Decimal`** (TD-02) — pending.
-- [ ] **Real USD→Toman rate source** (TD-04) — pending.
+- [x] **Money → `Decimal`** (TD-02) — complete.
+- [x] **Real USD→Toman rate source** (TD-04) — complete.
 
-> **V2 status:** 52 tests green; `ruff` + `mypy --strict` clean. Storage swapped from JSON to SQLite.
+> **V2 status:** All tasks completed! 52 tests green; `ruff` + `mypy --strict` clean. Storage swapped from JSON to SQLite, floats to Decimal, and fiat API replaced natively.
 
 ---
 
