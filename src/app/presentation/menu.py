@@ -19,6 +19,7 @@ from app.services.crypto_service import CryptoService
 from app.services.football_service import FootballService
 from app.utils.exceptions import AppError, ConfigError
 from app.utils.logger import get_logger
+from app.utils.result import Ok
 
 logger = get_logger(__name__)
 
@@ -75,23 +76,39 @@ class Menu:
             self._console.print(f"[red]Sorry, that didn't work:[/red] {exc}")
 
     def _show_all_coins(self) -> None:
-        prices = self._crypto.get_prices(list(Coin))
-        self._console.print(render_prices(prices))
+        result = self._crypto.get_prices(list(Coin))
+        if isinstance(result, Ok):
+            self._console.print(render_prices(result.value))
+        else:
+            self._handle_error(result.error)
 
     def _show_single_coin(self) -> None:
         coin = self._ask_coin()
-        prices = self._crypto.get_prices([coin])
-        self._console.print(render_prices(prices))
+        result = self._crypto.get_prices([coin])
+        if isinstance(result, Ok):
+            self._console.print(render_prices(result.value))
+        else:
+            self._handle_error(result.error)
 
     def _show_price_history(self) -> None:
         coin = self._ask_coin()
         limit = IntPrompt.ask("How many records", default=10)
-        history = self._crypto.get_price_history(coin, limit=limit)
-        self._console.print(render_price_history(coin, history))
+        result = self._crypto.get_price_history(coin, limit=limit)
+        if isinstance(result, Ok):
+            self._console.print(render_price_history(coin, result.value))
+        else:
+            self._handle_error(result.error)
 
     def _show_world_cup(self) -> None:
-        tournament = self._football.get_tournament()
-        self._console.print(render_tournament(tournament))
+        result = self._football.get_tournament()
+        if isinstance(result, Ok):
+            self._console.print(render_tournament(result.value))
+        else:
+            self._handle_error(result.error)
+
+    def _handle_error(self, exc: Exception) -> None:
+        logger.warning("action failed: %s", exc)
+        self._console.print(f"[red]Sorry, that didn't work:[/red] {exc}")
 
     def _ask_coin(self) -> Coin:
         symbol = Prompt.ask("Coin", choices=[c.symbol for c in Coin])

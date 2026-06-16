@@ -10,14 +10,14 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
-
 from app.config.settings import Settings
 from app.models.crypto import Coin, CryptoPrice
 from app.models.football import Tournament
+from app.services.cache_strategy import TTLCacheStrategy
 from app.services.crypto_service import CryptoService
 from app.storage.base_repository import BaseRepository, Cached
 from app.utils.exceptions import APIError
+from app.utils.result import Err, Ok
 
 SETTINGS = Settings(
     data_dir=Path("dummy_dir"),
@@ -90,7 +90,8 @@ class FakeCryptoClient:
 
 
 def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
-    return CryptoService(client, repo, SETTINGS)
+    cache_strategy = TTLCacheStrategy(ttl_seconds=SETTINGS.cache_ttl_seconds)
+    return CryptoService(client, repo, cache_strategy)
 
 
 class TestFreshCacheHit:
@@ -103,7 +104,8 @@ class TestFreshCacheHit:
         result = service.get_prices(COINS)
 
         assert client.fetch_calls == 0
-        assert result[0].symbol == "BTC"
+        assert isinstance(result, Ok)
+        assert result.value[0].symbol == "BTC"
 
 
 class TestStaleAndMiss:
@@ -118,7 +120,8 @@ class TestStaleAndMiss:
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 1
-        assert result == fresh
+        assert isinstance(result, Ok)
+        assert result.value == fresh
 
     def test_cache_miss_triggers_fetch_and_save(self) -> None:
         repo = FakeRepository()
@@ -142,7 +145,8 @@ class TestOfflineFallback:
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 0  # nothing fresh to save
-        assert result[0].symbol == "BTC"
+        assert isinstance(result, Ok)
+        assert result.value[0].symbol == "BTC"
 
 
 class TestCompleteFailure:
@@ -151,8 +155,9 @@ class TestCompleteFailure:
         client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
-        with pytest.raises(APIError):
-            service.get_prices(COINS)
+        result = service.get_prices(COINS)
+        assert isinstance(result, Err)
+        assert isinstance(result.error, APIError)
 
 
 class TestPriceHistory:
@@ -162,6 +167,7 @@ class TestPriceHistory:
         service = build_service(client, repo)
 
         service.get_prices(COINS)  # records one batch
-        history = service.get_price_history(Coin.BTC, limit=10)
+        result = service.get_price_history(Coin.BTC, limit=10)
 
-        assert [p.symbol for p in history] == ["BTC"]
+        assert isinstance(result, Ok)
+        assert [p.symbol for p in result.value] == ["BTC"]

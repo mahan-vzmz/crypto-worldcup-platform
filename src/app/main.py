@@ -1,28 +1,20 @@
 """Composition root: the one place that wires every layer together.
 
 Ordering is deliberate and anti-fragile (extends the M1 startup
-sequence): settings -> directories -> logging -> build data/clients ->
-build services -> launch menu. main.py is the only module permitted to
-import across all layers (TD-03: manual wiring, acceptable for V1).
+sequence): settings -> directories -> logging -> build container ->
+launch menu. main.py is the only module permitted to
+import across all layers.
 
-V2: the data layer is now a SQLiteRepository (was JSONRepository); nothing
-else in the wiring changes -- the repository is hidden behind BaseRepository.
+V3: Introduced a DI Container to remove manual wiring logic (TD-03).
 """
 
-import logging
 import sys
 
 from rich.console import Console
 
-from app.clients.crypto_client import CryptoClient
-from app.clients.football_client import FootballClient
-from app.clients.protocols import FootballClientProtocol
+from app.config.container import Container
 from app.config.settings import Settings
-from app.models.football import Tournament
 from app.presentation.menu import Menu
-from app.services.crypto_service import CryptoService
-from app.services.football_service import FootballService
-from app.storage.sqlite_repository import SQLiteRepository
 from app.utils.exceptions import ConfigError
 from app.utils.logger import get_logger, setup_logging
 
@@ -48,51 +40,15 @@ def main() -> None:
     logger = get_logger(__name__)
     logger.info("starting platform; data_dir=%s", settings.data_dir)
 
-    # 4. Build the data layer: one repository, two API clients.
-    repository = SQLiteRepository(db_path=settings.db_path)
-    crypto_client = CryptoClient(
-        api_key=settings.crypto_api_key,
-    )
+    # 4. Build the DI Container.
+    container = Container(settings)
 
-    # 5. Build services (clients + repository injected).
-    crypto_service = CryptoService(crypto_client, repository, settings)
-
-    # The football path needs a key; if absent, build a service whose
-    # client raises ConfigError on use -- the menu degrades gracefully
-    # rather than crashing the whole app at startup.
-    football_client = _build_football_client(settings, logger)
-    football_service = FootballService(football_client, repository, settings)
-
-    # 6. Launch the presentation layer.
-    Menu(crypto_service, football_service, console=console).run()
-
-
-def _build_football_client(
-    settings: Settings, logger: logging.Logger
-) -> FootballClientProtocol:
-    """Construct the football client, deferring a missing-key failure
-    to point of use so crypto still works without a football key."""
-    try:
-        return FootballClient(api_key=settings.football_api_key)
-    except ConfigError:
-        logger.warning(
-            "football API key not set; football features will be unavailable"
-        )
-        # Return an unconfigured client: any call raises ConfigError,
-        # which the menu catches and shows as "Unavailable".
-        return _UnavailableFootballClient()
-
-
-class _UnavailableFootballClient:
-    """Stand-in used when no football key is configured.
-
-    Structurally satisfies FootballClientProtocol (it has a matching
-    ``fetch_world_cup``), so it can be returned where the protocol is
-    expected -- without inheriting from the real client.
-    """
-
-    def fetch_world_cup(self) -> Tournament:
-        raise ConfigError("FOOTBALL_API_KEY is not set; football data is unavailable")
+    # 5. Launch the presentation layer.
+    Menu(
+        crypto_service=container.crypto_service,
+        football_service=container.football_service,
+        console=console,
+    ).run()
 
 
 if __name__ == "__main__":
