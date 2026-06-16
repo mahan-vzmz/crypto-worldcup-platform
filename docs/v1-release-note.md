@@ -63,7 +63,7 @@ disabled, the app served cached prices and logged the fallback exactly as design
 
 ## 4. Quality at release
 
-- **Tests:** 52 passing. Domain-model invariants; the JSON repository against a real temporary
+- **Tests:** 52 passing in V1 (currently 49 in V2 after retiring fiat client). Domain-model invariants; the JSON repository against a real temporary
   directory (round-trip, corruption, future-schema, idempotent delete, unsafe-key rejection); and
   all four service orchestration branches via in-memory fakes. No test touches a live API or the
   real filesystem outside its fixture — the repository ABC is what makes those fakes trivial.

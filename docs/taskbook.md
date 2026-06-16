@@ -140,7 +140,7 @@
 - [x] **#27 — Finalize README and architecture docs** — 🟢 · 30 min
   README updated to full V1 usage; ADRs reconciled; CHANGELOG released.
 
-> **M7 closeout:** 52 tests green. Ruff clean, mypy strict passing. End-to-end
+> **M7 closeout:** 52 tests green (reduced to 49 in V2). Ruff clean, mypy strict passing. End-to-end
 > run verified including the offline-fallback path against a downed network.
 
 ---
@@ -163,7 +163,7 @@
 - [x] **Money → `Decimal`** (TD-02) — complete.
 - [x] **Real USD→Toman rate source** (TD-04) — complete.
 
-> **V2 status:** All tasks completed! 52 tests green; `ruff` + `mypy --strict` clean. Storage swapped from JSON to SQLite, floats to Decimal, and fiat API replaced natively.
+> **V2 status:** All tasks completed! 49 tests green; `ruff` + `mypy --strict` clean. Storage swapped from JSON to SQLite, floats to Decimal, and fiat API replaced natively.
 
 ---
 

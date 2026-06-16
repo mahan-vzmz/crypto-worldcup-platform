@@ -257,7 +257,7 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 > **Closeout note (retired risks, not debt).** During development, the storage layer (M3) and
 > client layer (M4) were merged ahead of their dedicated test suites, which were scheduled under
 > M7. Those were tracked *process risks*, not architectural debt, and were fully retired when M7
-> landed: 52 tests green, covering models, storage (real `tmp_path` fixture), and all four service
+> landed: 49 tests green, covering models, storage (real `tmp_path` fixture), and all four service
 > orchestration branches. They are recorded here only so the history is honest; they impose no
 > ongoing obligation.
 > **V2 update.** TD-01 (JSON→SQLite) is resolved via `SQLiteRepository` behind the repository seam

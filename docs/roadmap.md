@@ -8,7 +8,7 @@
 > **Status:** 
 >**V1.0.0 is complete.** All milestones M0–M7 are implemented and merged into a
 > protected `main`. This roadmap was reconciled against a live repository audit at V1 closeout:
-> the codebase, the test suite (52 tests green on Python 3.12, after fixing a merge-conflict marker
+> the codebase, the test suite (49 tests green on Python 3.12, after fixing a merge-conflict marker
 > that had been blocking collection), and the tooling gates (`ruff`, `mypy --strict`) were all
 > verified directly.
 > **V2.0.0 is complete.** The SQLite storage swap, price-history feature, and client DIP seams
@@ -117,7 +117,7 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 
 ### M7 - Tests & Documentation (Completed)
 - **Objective:** unit tests across layers with external boundaries mocked, plus final docs.
-- **Status detail:** Delivered. 52 tests (models, storage against a real `tmp_path`, services via
+- **Status detail:** Delivered. 49 tests (models, storage against a real `tmp_path`, services via
   in-memory fakes, config) pass on Python 3.12; `ruff` and `mypy --strict` are clean.
 ---
 
