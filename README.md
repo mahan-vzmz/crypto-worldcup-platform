@@ -35,13 +35,13 @@ as an Architecture Decision Record in [`docs/architecture.md`](docs/architecture
 ```
 [ User ] -> [ Presentation ] -> [ Service ] -> [ Clients (external APIs) ]
                                      |
-                               [ Storage (JSON) ]
+                                [ Storage (SQLite) ]
         ( Utilities & Configuration available to every layer )
 ```
 
 Dependencies flow one direction only. Services depend on *interfaces*, not
-concrete implementations, which is what makes the JSON-to-database migration (a
-future version) a swap rather than a rewrite — and what lets the test suite
+concrete implementations, which is what made the JSON-to-database migration (a
+V2 feature) a swap rather than a rewrite — and what lets the test suite
 replace the network and filesystem with lightweight fakes. External API shapes
 are translated into typed domain models inside the client layer (an
 anti-corruption layer), so nothing above the clients ever sees raw API JSON.
@@ -86,8 +86,6 @@ cp .env.example .env
 | --- | --- | --- | --- |
 | `DATA_DIR` | no | `data` | Root for cache, logs, settings, history |
 | `CACHE_TTL_SECONDS` | no | `300` | Freshness window before a refetch |
-| `USD_TO_TOMAN_RATE` | no | configurable fallback | USD→Toman conversion (see ADR-005 / TD-04) |
-| `CRYPTO_API_KEY` | no | — | CoinGecko key (lifts rate limits; not required) |
 | `FOOTBALL_API_KEY` | no | — | Football-Data.org key; without it, football features degrade gracefully |
 
 Crypto works with no keys at all. The football feature requires
@@ -108,8 +106,8 @@ crypto-wc            # console entry point (defined in pyproject.toml)
 python -m app.main   # equivalent module invocation
 ```
 
-You will see an interactive menu: all coin prices, a single coin, World Cup
-matches, or quit.
+You will see an interactive menu: all coin prices, a single coin, price history,
+World Cup matches, or quit.
 
 ## Development
 
@@ -120,7 +118,7 @@ mypy src             # strict type check
 pytest               # run the suite
 ```
 
-The test suite covers the domain models, the JSON repository (with a real
+The test suite covers the domain models, the SQLite repository (with a real
 temporary-directory fixture), and the service orchestration (with in-memory
 fakes for the client and repository). No test touches a live API or the real
 filesystem outside its fixture.
@@ -134,7 +132,7 @@ src/app/
   models/            # typed domain dataclasses (crypto, football)
   services/          # orchestration: cache-then-fetch with offline fallback
   clients/           # API adapters (anti-corruption layer) + base HTTP client
-  storage/           # repository interface + atomic JSON implementation
+  storage/           # repository interface + SQLite implementation
   presentation/      # rich renderers + interactive menu (no business logic)
   utils/             # logging, exception hierarchy
 tests/               # mirrors the source tree

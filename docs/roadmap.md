@@ -11,9 +11,9 @@
 > the codebase, the test suite (52 tests green on Python 3.12, after fixing a merge-conflict marker
 > that had been blocking collection), and the tooling gates (`ruff`, `mypy --strict`) were all
 > verified directly.
-> **V2 in progress:** the SQLite storage swap and the price-history feature have landed; client
-> `Protocol`s complete the DIP seam. Remaining V2 work: `float`→`Decimal` (TD-02) and a real
-> USD→Toman rate source (TD-04).
+> **V2.0.0 is complete.** The SQLite storage swap, price-history feature, and client DIP seams
+> have landed. Remaining V2 work (`float`→`Decimal` TD-02 and native Wallex Toman rate source TD-04)
+> are also fully shipped!
 ---
 
 ## Project Vision
@@ -137,11 +137,10 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Learning objectives:** the full clean-architecture foundation - layering, dependency
   inversion, repository and adapter patterns, configuration and logging, error handling, testing.
 
-### Version 2 - SQLite *(in progress)*
-- **Status:** the storage swap has landed — `SQLiteRepository` with a normalized schema
+### Version 2 - SQLite ✅ *(shipped — V2.0.0)*
+- **Status:** Complete. The storage swap landed — `SQLiteRepository` with a normalized schema
   (`price_history`, `tournament`, `match`), a new per-coin price-history feature, and the
-  client-side DIP seam completed (TD-09 / TD-10). Remaining: `float`→`Decimal` (TD-02) and a real
-  USD→Toman rate source (TD-04).
+  client-side DIP seam completed (TD-09 / TD-10). We also completed `float`→`Decimal` migration (TD-02) and integrated the Wallex API for native Toman rates (TD-04).
 - **Features:** durable, queryable persistence replacing flat JSON; per-coin price history.
 - **Architectural changes:** the repository interface evolved from key→dict to a domain-specific
   contract (ADR-011 / decisions ADR-015); JSON retired. Client `Protocol`s added so services depend
@@ -182,10 +181,8 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 
 ## Planned Improvements
 
-These are recorded in the technical debt register (see [`architecture.md`](architecture.md) section 8)
-and scheduled against the versions above: migrate JSON -> SQLite (TD-01, V2); `float` -> `Decimal`
-for money (TD-02, V2); replace manual dependency wiring with a composition helper if it grows
-unwieldy (TD-03, V3); adopt a proper USD->Toman rate source (TD-04, V2/V3); add CI and pre-commit
+and scheduled against the versions above: replace manual dependency wiring with a composition helper if it grows
+unwieldy (TD-03, V3); add CI and pre-commit
 hooks (TD-05, V6); support multiple football competitions (TD-06, post-V1); extract a cache
 strategy object (TD-07, V3); move synchronous `requests` to async `httpx` (TD-08, V6).
 

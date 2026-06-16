@@ -97,9 +97,9 @@ Each ADR records the *reasoning* behind a load-bearing decision, not merely the 
 - **Context:** need USD price and 24h change for BTC/ETH/SOL.
 - **Options considered:** CoinGecko (free, no key for basic use), CoinMarketCap (richer, key required), Binance (trading-oriented).
 - **Trade-offs:** CoinGecko minimizes setup friction and secret-handling but has rate limits and no SLA; CoinMarketCap adds headroom at the cost of key management; Binance is overkill for spot prices.
-- **Final decision:** **CoinGecko for V1**, behind the adapter.
-- **Rationale:** lowest friction for a learning project; the adapter quarantines the choice so a swap costs one file.
-- **Open item:** verify current free-tier terms and exact endpoint at the start of Milestone M4.
+- **Final decision:** **CoinGecko for V1**, behind the adapter. Swapped to **Wallex in V2**.
+- **Rationale:** lowest friction for a learning project; the adapter quarantines the choice so a swap costs one file. In V2, Wallex provided native USD and Toman prices together.
+- **Open item:** verify current free-tier terms and exact endpoint at the start of Milestone M4. (Done in V1; replaced in V2).
 
 ### ADR-004 — Football / World Cup data provider
 - **Context:** need fixtures, results, scores, team names, and tournament progress for one competition.
@@ -113,8 +113,8 @@ Each ADR records the *reasoning* behind a load-bearing decision, not merely the 
 - **Context:** `price_toman` is required but no native Toman crypto feed is assumed.
 - **Options considered:** (a) native Toman crypto feed; (b) compute Toman = USD × a USD→Toman rate; (c) configurable static fallback rate.
 - **Trade-offs:** a native feed is most "real" but adds a second fragile integration to V1; computing from a rate keeps one source of truth for crypto prices but is only as accurate as the rate; a static rate always works but drifts from reality.
-- **Final decision:** **compute from a USD→Toman rate** sourced at M4, with a configurable fallback rate (clearly labeled approximate) if no reliable free rate API is found.
-- **Rationale:** keeps V1 shippable without a second fragile integration; honesty about approximation is acceptable for a display-only value.
+- **Final decision:** **compute from a USD→Toman rate** sourced at M4, with a configurable fallback rate (clearly labeled approximate) if no reliable free rate API is found. (V1). **Native Wallex Toman pairs** used directly in V2.
+- **Rationale:** keeps V1 shippable without a second fragile integration; honesty about approximation is acceptable for a display-only value. V2 eliminated this need entirely.
 
 ### ADR-006 — Cache strategy
 - **Context:** avoid redundant API calls and provide a fallback when an API is unreachable.
@@ -243,10 +243,10 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 
 | ID | Description | Reason | Impact | Severity | Recommended Resolution | Planned Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| TD-01 *(Resolved in V2)* | JSON storage, no concurrency safety | Single-user CLI; atomic writes cover the single-writer case | Breaks under concurrent/web access | Medium | Move to SQLite behind the same repository interface | V2 |
-| TD-02 | Money as `float` | Display-only in V1; `Decimal` ceremony unjustified now | Rounding error if values ever drive arithmetic | Low | Switch to `Decimal` alongside the DB migration | V2 |
+| TD-01 *(Resolved)* | JSON storage, no concurrency safety | Single-user CLI; atomic writes cover the single-writer case | Breaks under concurrent/web access | Medium | Move to SQLite behind the same repository interface | Done (V2) ✅ |
+| TD-02 *(Resolved)* | Money as `float` | Display-only in V1; `Decimal` ceremony unjustified now | Rounding error if values ever drive arithmetic | Low | Switch to `Decimal` alongside the DB migration | Done (V2) ✅ |
 | TD-03 | Manual dependency wiring in `main.py` | Few components; explicit wiring reads more clearly than a container for a learner | Wiring grows verbose as components multiply | Low | Introduce a small composition/DI helper if it becomes unwieldy | V3 |
-| TD-04 | Toman price may use a configurable fallback rate | Keeps V1 shippable without a second fragile integration | Displayed Toman value may be approximate | Medium | Adopt a proper rate source | V2/V3 |
+| TD-04 *(Resolved)* | Toman price may use a configurable fallback rate | Keeps V1 shippable without a second fragile integration | Displayed Toman value may be approximate | Medium | Adopt a proper rate source (Wallex) | Done (V2) ✅ |
 | TD-05 | No CI, pre-commit hooks, or automated deployment | Automation is explicitly a V6 concern; adding now is scope creep | Quality gates run manually; human error possible | Low | Add CI pipeline + pre-commit | V6 |
 | TD-06 | Single hardcoded football competition | Multi-tournament is out of V1 scope; free tier constrains the choice anyway | Users cannot choose the tournament | Low | Multi-tournament support with a richer tier/source | Post-V1 |
 | TD-07 | TTL cache, not sophisticated invalidation | Meets V1 freshness needs simply | Coarse freshness control | Low | Extract a cache strategy object if warranted | V3 |
@@ -261,8 +261,10 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 > orchestration branches. They are recorded here only so the history is honest; they impose no
 > ongoing obligation.
 > **V2 update.** TD-01 (JSON→SQLite) is resolved via `SQLiteRepository` behind the repository seam
-> (ADR-011). TD-09 / TD-10 (client-side DIP seam) are resolved via `clients/protocols.py`. Note
-> that V2 also *evolved* the repository interface itself (ADR-011), so the "services never change"
+> (ADR-011). TD-09 / TD-10 (client-side DIP seam) are resolved via `clients/protocols.py`. 
+> TD-02 is resolved by migrating all monetary fields to `Decimal`.
+> TD-04 is resolved by replacing CoinGecko and Fiat integrations with a direct integration to Wallex.
+> Note that V2 also *evolved* the repository interface itself (ADR-011), so the "services never change"
 > framing of the original ADR-002 held for the client seam but not for storage — by design, to add
 > the price-history capability.
 ---
