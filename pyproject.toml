@@ -19,6 +19,8 @@ dependencies = [
     "requests>=2.31.0",
     "rich>=13.7.0",
     "python-dotenv>=1.0.1",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +33,7 @@ dev = [
 
 [project.scripts]
 crypto-wc = "app.main:main"
+crypto-wc-api = "app.api.main:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
