@@ -167,6 +167,20 @@ Each ADR records the *reasoning* behind a load-bearing decision, not merely the 
 - **Rationale:** the interface change is justified by a genuine new capability, not gratuitous
   rework. `float`→`Decimal` (TD-02) is deferred to a follow-up within V2.
 
+### ADR-012 — Result pattern over Exception raising in Services
+- **Context:** V3 OOP refactoring. `CryptoService` and `FootballService` used to raise `APIError` when offline and cache-miss occurred.
+- **Options considered:** (a) Keep raising standard Exceptions; (b) Introduce a Monad-like `Result[T, E]` type (`Ok` / `Err`).
+- **Trade-offs:** Exceptions are standard Python but hide failure modes in type signatures; `Result` explicitly forces the caller to handle both success and error cases, improving safety at the cost of slight boilerplate.
+- **Final decision:** **Adopt the `Result` pattern** for service layer returns.
+- **Rationale:** Aligns with Clean Architecture's emphasis on explicit boundaries.
+
+### ADR-013 — Lightweight Dependency Injection Container
+- **Context:** V3 DI refactoring. `main.py` manually wired all dependencies (TD-03).
+- **Options considered:** (a) Extract to a factory function; (b) Custom lightweight `Container` class; (c) Third-party library like `dependency-injector`.
+- **Trade-offs:** Third-party adds heavy dependency for a simple project; factory function is okay but doesn't store singletons easily; custom class is simple, explicit, and educational.
+- **Final decision:** **Custom `Container` class**.
+- **Rationale:** Maximizes learning without adding external bloat.
+
 ### Remaining open questions
 All three live external-provider questions — crypto endpoint terms (ADR-003), football competition
 selection (ADR-004), and Toman rate source (ADR-005) — are deliberately deferred to **Milestone M4**,
@@ -245,11 +259,11 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 | --- | --- | --- | --- | --- | --- | --- |
 | TD-01 *(Resolved)* | JSON storage, no concurrency safety | Single-user CLI; atomic writes cover the single-writer case | Breaks under concurrent/web access | Medium | Move to SQLite behind the same repository interface | Done (V2) ✅ |
 | TD-02 *(Resolved)* | Money as `float` | Display-only in V1; `Decimal` ceremony unjustified now | Rounding error if values ever drive arithmetic | Low | Switch to `Decimal` alongside the DB migration | Done (V2) ✅ |
-| TD-03 | Manual dependency wiring in `main.py` | Few components; explicit wiring reads more clearly than a container for a learner | Wiring grows verbose as components multiply | Low | Introduce a small composition/DI helper if it becomes unwieldy | V3 |
+| TD-03 *(Resolved)* | Manual dependency wiring in `main.py` | Few components; explicit wiring reads more clearly than a container for a learner | Wiring grows verbose as components multiply | Low | Introduce a small composition/DI helper if it becomes unwieldy | Done (V3) ✅ |
 | TD-04 *(Resolved)* | Toman price may use a configurable fallback rate | Keeps V1 shippable without a second fragile integration | Displayed Toman value may be approximate | Medium | Adopt a proper rate source (Wallex) | Done (V2) ✅ |
 | TD-05 | No CI, pre-commit hooks, or automated deployment | Automation is explicitly a V6 concern; adding now is scope creep | Quality gates run manually; human error possible | Low | Add CI pipeline + pre-commit | V6 |
 | TD-06 | Single hardcoded football competition | Multi-tournament is out of V1 scope; free tier constrains the choice anyway | Users cannot choose the tournament | Low | Multi-tournament support with a richer tier/source | Post-V1 |
-| TD-07 | TTL cache, not sophisticated invalidation | Meets V1 freshness needs simply | Coarse freshness control | Low | Extract a cache strategy object if warranted | V3 |
+| TD-07 *(Resolved)* | TTL cache, not sophisticated invalidation | Meets V1 freshness needs simply | Coarse freshness control | Low | Extract a cache strategy object if warranted | Done (V3) ✅ |
 | TD-08 | Synchronous HTTP (`requests`) | Simpler to learn and sufficient for a CLI | Blocks during slow calls; unsuitable for high concurrency | Low | Move to async (`httpx`) at the `base_client` seam | V6 |
 | TD-09 *(Resolved)* | Services depend on concrete clients, not an abstraction | Clients were built before the need for substitution was felt; YAGNI at the time | Test fakes require a `# type: ignore`; the DIP seam is incomplete on the client side | Medium | Extract a `CryptoClientProtocol` / `FootballClientProtocol` and type services against it |  Done (V2) ✅ |
 | TD-10 *(Resolved)* | Ad-hoc unavailable-client stand-in in `main.py` | Graceful football degradation needed a no-key path; a quick stand-in shipped V1 | Structural (not nominal) compatibility; mirrors the TD-09 smell in the composition root | Low | Fold into the TD-09 protocol so the stand-in implements a real interface |  Done (V2) ✅ |

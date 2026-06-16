@@ -167,6 +167,17 @@
 
 ---
 
+## Milestone V3 — OOP & Service Refactor
+**Epic:** Cleaner internals · **Status:** ✅ Complete
+
+- [x] **Richer Result Types** — `utils/result.py` with `Ok`/`Err` generics. Replaced exception raising in services.
+- [x] **Cache Strategy Object** (TD-07) — extracted `is_fresh` into a polymorphic `CacheStrategyProtocol` and `TTLCacheStrategy`.
+- [x] **DI Container** (TD-03) — introduced `config/container.py` to decouple wiring from `main.py`.
+
+> **V3 status:** All tasks completed! 49 tests updated and green.
+
+---
+
 ## Definition of Done (V1) — met
 
 Full criteria in [`architecture.md`](architecture.md) §7. Verified at release:

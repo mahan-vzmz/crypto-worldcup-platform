@@ -14,6 +14,7 @@
 > **V2.0.0 is complete.** The SQLite storage swap, price-history feature, and client DIP seams
 > have landed. Remaining V2 work (`float`→`Decimal` TD-02 and native Wallex Toman rate source TD-04)
 > are also fully shipped!
+> **V3.0.0 is complete.** The OOP and service refactoring is fully implemented, introducing the `Result` type, `CacheStrategyProtocol`, and a DI Container.
 ---
 
 ## Project Vision
@@ -149,7 +150,8 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Learning objectives:** relational storage, the payoff *and limits* of the repository
   abstraction, structural vs nominal typing.
 
-### Version 3 - OOP & Service Refactor *(Planned)*
+### Version 3 - OOP & Service Refactor ✅ *(shipped — V3.0.0)*
+- **Status:** Complete. We extracted a `CacheStrategyProtocol` (TD-07), introduced functional `Result` types (`Ok`/`Err`), and replaced manual wiring in `main.py` with a DI `Container` (TD-03).
 - **Features:** cleaner internals; no major user-facing change.
 - **Architectural changes:** extract a caching-strategy object; introduce richer result/error
   types instead of returning bare models.
@@ -181,10 +183,8 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 
 ## Planned Improvements
 
-and scheduled against the versions above: replace manual dependency wiring with a composition helper if it grows
-unwieldy (TD-03, V3); add CI and pre-commit
-hooks (TD-05, V6); support multiple football competitions (TD-06, post-V1); extract a cache
-strategy object (TD-07, V3); move synchronous `requests` to async `httpx` (TD-08, V6).
+and scheduled against the versions above: add CI and pre-commit
+hooks (TD-05, V6); support multiple football competitions (TD-06, post-V1); move synchronous `requests` to async `httpx` (TD-08, V6).
 
 ---
 
