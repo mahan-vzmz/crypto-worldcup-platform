@@ -43,6 +43,8 @@ class Settings:
     cache_ttl_seconds: int
     crypto_api_key: str
     football_api_key: str
+    telegram_bot_token: str
+    telegram_broadcast_chat_id: str
 
     @property
     def cache_dir(self) -> Path:
@@ -106,6 +108,8 @@ class Settings:
             cache_ttl_seconds=cache_ttl_seconds,
             crypto_api_key=os.getenv("CRYPTO_API_KEY", ""),
             football_api_key=os.getenv("FOOTBALL_API_KEY", ""),
+            telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
+            telegram_broadcast_chat_id=os.getenv("TELEGRAM_BROADCAST_CHAT_ID", ""),
         )
 
     def ensure_directories(self) -> None:

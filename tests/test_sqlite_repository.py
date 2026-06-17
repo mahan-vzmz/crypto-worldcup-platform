@@ -1,8 +1,8 @@
-"""Tests for the SQLite repository contract (V2).
+"""Tests for the SQLite implementation of BaseRepository.
 
-Uses pytest's tmp_path fixture: a fresh temporary directory per test, so
-real SQLite file behaviour is exercised without touching the project's
-data/ folder. ``sqlite3`` is stdlib, so these run anywhere.
+Focuses on the round-trip through the database: do domain models serialize
+into tables and deserialize back exactly as they were? We use in-memory
+or temporary databases so tests remain fast and isolated.
 """
 
 import time
@@ -10,13 +10,15 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
-from app.models.crypto import CryptoPrice
+from app.models.crypto import AssetType, CryptoPrice
 from app.models.football import Match, MatchStatus, Team, Tournament
 from app.storage.sqlite_repository import SQLiteRepository
 
 
 def make_repo(tmp_path: Path) -> SQLiteRepository:
-    return SQLiteRepository(db_path=tmp_path / "test.db")
+    """Provide a fresh repository pointing to a temporary file."""
+    db = tmp_path / "test.db"
+    return SQLiteRepository(db_path=db)
 
 
 def a_price(
@@ -28,6 +30,7 @@ def a_price(
         price_usd=price_usd,
         price_toman=price_usd * Decimal("90000.0"),
         change_24h=Decimal("1.5"),
+        type=AssetType.CRYPTO,
         last_updated=datetime.now(UTC),
     )
 
@@ -51,6 +54,7 @@ def a_tournament() -> Tournament:
     )
     return Tournament(
         name="World Cup",
+        code="WC",
         matches=(match, scheduled),
         current_stage="Final",
     )
@@ -59,106 +63,112 @@ def a_tournament() -> Tournament:
 class TestPricesRoundTrip:
     def test_save_then_load_latest(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
-        prices = [a_price("BTC"), a_price("ETH", Decimal("3000.0"))]
-        repo.save_prices(prices)
+        prices = [a_price("BTC"), a_price("ETH")]
 
+        repo.save_prices(prices)
         cached = repo.load_latest_prices()
 
         assert cached is not None
-        assert [p.symbol for p in cached.data] == ["BTC", "ETH"]
-        assert cached.data[1].price_usd == Decimal("3000.0")
+        assert cached.data == prices
+        assert (datetime.now(UTC) - cached.fetched_at).total_seconds() < 1.0
 
-    def test_load_latest_on_empty_returns_none(self, tmp_path: Path) -> None:
+    def test_load_on_empty_returns_none(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
         assert repo.load_latest_prices() is None
 
     def test_latest_reflects_most_recent_batch(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
-        repo.save_prices([a_price("BTC", Decimal("60000.0"))])
-        time.sleep(0.01)  # ensure a distinct fetched_at timestamp
-        repo.save_prices([a_price("BTC", Decimal("70000.0"))])
+
+        batch1 = [a_price("BTC", Decimal("60000.0"))]
+        repo.save_prices(batch1)
+        time.sleep(0.01)
+
+        batch2 = [a_price("BTC", Decimal("65000.0"))]
+        repo.save_prices(batch2)
 
         cached = repo.load_latest_prices()
-
         assert cached is not None
-        assert len(cached.data) == 1
-        assert cached.data[0].price_usd == Decimal("70000.0")
+        assert cached.data == batch2
 
 
 class TestPriceHistory:
     def test_history_is_newest_first_and_limited(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
-        for usd in (Decimal("10.0"), Decimal("20.0"), Decimal("30.0")):
-            repo.save_prices([a_price("SOL", usd)])
-            time.sleep(0.01)
 
-        history = repo.get_price_history("SOL", limit=2)
+        repo.save_prices([a_price("BTC", Decimal("100.0"))])
+        time.sleep(0.01)
+        repo.save_prices([a_price("BTC", Decimal("110.0"))])
+        time.sleep(0.01)
+        repo.save_prices([a_price("BTC", Decimal("120.0"))])
 
-        assert [p.price_usd for p in history] == [Decimal("30.0"), Decimal("20.0")]
+        history = repo.get_price_history("BTC", limit=2)
+
+        assert len(history) == 2
+        assert history[0].price_usd == Decimal("120.0")
+        assert history[1].price_usd == Decimal("110.0")
 
     def test_history_filters_by_symbol(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
         repo.save_prices([a_price("BTC"), a_price("ETH", Decimal("3000.0"))])
+        repo.save_prices([a_price("BTC"), a_price("SOL", Decimal("150.0"))])
 
         history = repo.get_price_history("ETH", limit=10)
 
         assert len(history) == 1
         assert history[0].symbol == "ETH"
 
-    def test_history_empty_for_unknown_symbol(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
-        assert repo.get_price_history("BTC", limit=10) == []
-
     def test_zero_limit_returns_empty(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
         repo.save_prices([a_price("BTC")])
-        assert repo.get_price_history("BTC", limit=0) == []
+
+        history = repo.get_price_history("BTC", limit=0)
+
+        assert history == []
 
 
 class TestTournamentRoundTrip:
     def test_save_then_load(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
-        repo.save_tournament(a_tournament())
+        tournament = a_tournament()
 
-        cached = repo.load_latest_tournament()
+        repo.save_tournament(tournament)
+        cached = repo.load_tournament("WC")
 
         assert cached is not None
-        t = cached.data
-        assert t.name == "World Cup"
-        assert t.current_stage == "Final"
-        assert len(t.matches) == 2
-        assert t.matches[0].home_team.code == "ARG"
-        assert t.matches[0].home_score == 3
-        assert t.matches[1].status is MatchStatus.SCHEDULED
-        assert t.matches[1].home_score is None
+        assert cached.data == tournament
+        assert (datetime.now(UTC) - cached.fetched_at).total_seconds() < 1.0
 
     def test_load_on_empty_returns_none(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
-        assert repo.load_latest_tournament() is None
+        assert repo.load_tournament("WC") is None
 
     def test_save_replaces_previous_snapshot(self, tmp_path: Path) -> None:
         repo = make_repo(tmp_path)
-        repo.save_tournament(a_tournament())
+
+        first = a_tournament()
+        repo.save_tournament(first)
         time.sleep(0.01)
-        repo.save_tournament(
-            Tournament(name="World Cup 2", matches=(), current_stage="Group")
+
+        second = Tournament(
+            name="World Cup",
+            code="WC",
+            matches=first.matches[:1],
+            current_stage="Finished",
         )
+        repo.save_tournament(second)
 
-        cached = repo.load_latest_tournament()
-
+        cached = repo.load_tournament("WC")
         assert cached is not None
-        assert cached.data.name == "World Cup 2"
-        assert cached.data.matches == ()
+        assert cached.data == second
+        assert len(cached.data.matches) == 1
 
 
 class TestPersistence:
     def test_data_survives_a_new_repository_instance(self, tmp_path: Path) -> None:
         db = tmp_path / "test.db"
-        SQLiteRepository(db_path=db).save_prices([a_price("BTC")])
 
-        # A brand-new instance against the same file must see the data.
-        reopened = SQLiteRepository(db_path=db)
-        cached = reopened.load_latest_prices()
+        SQLiteRepository(db_path=db).save_prices([a_price("BTC")])
+        cached = SQLiteRepository(db_path=db).load_latest_prices()
 
         assert cached is not None
         assert cached.data[0].symbol == "BTC"

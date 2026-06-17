@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.config.settings import Settings
-from app.models.crypto import Coin, CryptoPrice
+from app.models.crypto import AssetType, CryptoPrice
 from app.models.football import Tournament
 from app.services.cache_strategy import TTLCacheStrategy
 from app.services.crypto_service import CryptoService
@@ -25,7 +25,6 @@ SETTINGS = Settings(
     football_api_key="dummy_football",
     cache_ttl_seconds=300,
 )
-COINS = [Coin.BTC]
 
 
 def a_price() -> CryptoPrice:
@@ -35,6 +34,7 @@ def a_price() -> CryptoPrice:
         price_usd=Decimal("65000.0"),
         price_toman=Decimal("4500000000.0"),
         change_24h=Decimal("2.5"),
+        type=AssetType.CRYPTO,
         last_updated=datetime.now(UTC),
     )
 
@@ -63,7 +63,7 @@ class FakeRepository(BaseRepository):
         self.save_calls += 1
         self._tournament = Cached(data=tournament, fetched_at=datetime.now(UTC))
 
-    def load_latest_tournament(self) -> Cached[Tournament] | None:
+    def load_tournament(self, name: str) -> Cached[Tournament] | None:
         return self._tournament
 
     def seed_prices(self, prices: list[CryptoPrice], *, age_seconds: int) -> None:
@@ -82,16 +82,21 @@ class FakeCryptoClient:
         self._fail = fail
         self.fetch_calls = 0
 
-    def fetch_prices(self, coins: list[Coin]) -> list[CryptoPrice]:
+    def fetch_prices(self) -> list[CryptoPrice]:
         self.fetch_calls += 1
         if self._fail:
             raise APIError("simulated outage")
         return self._prices
 
 
+class FakeFiatClient:
+    def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
+        return {}
+
+
 def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
     cache_strategy = TTLCacheStrategy(ttl_seconds=SETTINGS.cache_ttl_seconds)
-    return CryptoService(client, repo, cache_strategy)
+    return CryptoService(client, FakeFiatClient(), repo, cache_strategy)
 
 
 class TestFreshCacheHit:
@@ -101,7 +106,7 @@ class TestFreshCacheHit:
         client = FakeCryptoClient(fail=True)  # would raise if called
         service = build_service(client, repo)
 
-        result = service.get_prices(COINS)
+        result = service.get_prices()
 
         assert client.fetch_calls == 0
         assert isinstance(result, Ok)
@@ -116,7 +121,7 @@ class TestStaleAndMiss:
         client = FakeCryptoClient(fresh)
         service = build_service(client, repo)
 
-        result = service.get_prices(COINS)
+        result = service.get_prices()
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 1
@@ -128,7 +133,7 @@ class TestStaleAndMiss:
         client = FakeCryptoClient([a_price()])
         service = build_service(client, repo)
 
-        service.get_prices(COINS)
+        service.get_prices()
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 1
@@ -141,7 +146,7 @@ class TestOfflineFallback:
         client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
-        result = service.get_prices(COINS)
+        result = service.get_prices()
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 0  # nothing fresh to save
@@ -155,7 +160,7 @@ class TestCompleteFailure:
         client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
-        result = service.get_prices(COINS)
+        result = service.get_prices()
         assert isinstance(result, Err)
         assert isinstance(result.error, APIError)
 
@@ -166,8 +171,8 @@ class TestPriceHistory:
         client = FakeCryptoClient([a_price()])
         service = build_service(client, repo)
 
-        service.get_prices(COINS)  # records one batch
-        result = service.get_price_history(Coin.BTC, limit=10)
+        service.get_prices()  # records one batch
+        result = service.get_price_history("BTC", limit=10)
 
         assert isinstance(result, Ok)
         assert [p.symbol for p in result.value] == ["BTC"]

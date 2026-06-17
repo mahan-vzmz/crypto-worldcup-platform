@@ -1,9 +1,9 @@
 # Crypto & World Cup Information Platform
 [![CI](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml)
 
-A Python 3.12 terminal application that displays live cryptocurrency prices
-(BTC, ETH, SOL) and football tournament data, built as a portfolio-grade
-demonstration of clean, layered architecture.
+A Python 3.12+ platform (CLI & Web Dashboard) that displays live financial markets
+(Cryptocurrency, Fiat, Precious Metals) and multi-league football tournament data, 
+built as a portfolio-grade demonstration of clean, layered architecture.
 
 It is **offline-first and anti-fragile**: every external call is cached with a
 time-to-live, and when an API is unreachable the app serves the last good data
@@ -19,11 +19,11 @@ as an Architecture Decision Record in [`docs/architecture.md`](docs/architecture
 
 ## Features
 
-- **Cryptocurrency prices** — USD price, computed Toman price, 24-hour change,
-  and last-updated timestamp for BTC, ETH, and SOL. View all coins or a single
-  coin on demand.
-- **World Cup data** — fixtures, results, scores, kickoff times, team names, and
-  current tournament stage for one competition.
+- **Financial Markets** — USD price, computed Toman price, 24-hour change,
+  and timestamps dynamically fetched for Crypto, Fiat (EUR, GBP), and Metals.
+  View assets on a modern web dashboard or via CLI.
+- **Football Tournaments** — fixtures, results, scores, kickoff times, team names, and
+  current tournament stages for major global competitions (World Cup, Premier League, etc).
 - **TTL caching** — each fetch is cached with a `fetched_at` timestamp; fresh
   cache is served without a network call, stale cache triggers a refetch.
 - **Offline fallback** — if a live API fails, the app serves the most recent
@@ -33,10 +33,15 @@ as an Architecture Decision Record in [`docs/architecture.md`](docs/architecture
 ## Architecture in one diagram
 
 ```
-[ User ] -> [ Presentation ] -> [ Service ] -> [ Clients (external APIs) ]
-                                     |
-                                [ Storage (SQLite) ]
-        ( Utilities & Configuration available to every layer )
+[ Web Dashboard ]  [ Telegram Bot ]  [ CLI ]
+         \                |            /
+        [ REST API & Async Wrappers ]
+                          |
+           [ Core Service Layer ]  ----> [ Clients (Wallex, Football-Data, Bonbast) ]
+                          |
+                  [ Storage (SQLite) ]
+
+   ( Utilities & Configuration available to every layer )
 ```
 
 Dependencies flow one direction only. Services depend on *interfaces*, not
@@ -52,6 +57,9 @@ anti-corruption layer), so nothing above the clients ever sees raw API JSON.
 | --- | --- |
 | Language | Python 3.12+ |
 | HTTP | `requests` (session reuse, explicit timeouts, backoff retries) |
+| Web API | `fastapi` + `uvicorn` |
+| UI/Templates | `jinja2` + `HTMX` + TradingView Widgets |
+| Telegram Bot | `python-telegram-bot` (async, job-queue) |
 | CLI rendering | `rich` |
 | Config | `python-dotenv` + environment variables |
 | Typing | `mypy --strict` |
@@ -101,13 +109,14 @@ can run. Use the console entry point or the module form — **not**
 `python src/main.py`, which bypasses the installed package and breaks imports:
 
 ```bash
-crypto-wc            # console entry point (defined in pyproject.toml)
-# or
-python -m app.main   # equivalent module invocation
+crypto-wc            # Console CLI menu
+crypto-wc-api        # FastAPI Web Dashboard (runs on http://127.0.0.1:8000)
+crypto-wc-bot        # Telegram Bot Polling (requires TELEGRAM_BOT_TOKEN)
 ```
 
-You will see an interactive menu: all coin prices, a single coin, price history,
-World Cup matches, or quit.
+**Web Dashboard**: Open `http://127.0.0.1:8000` to see the immersive UI, TradingView widgets, and HTMX auto-refresh tables.
+
+**Telegram Bot**: Set `TELEGRAM_BOT_TOKEN` in `.env` and run `crypto-wc-bot` to handle commands like `/market` and `/football` asynchronously.
 
 ## Development
 

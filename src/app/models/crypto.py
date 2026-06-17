@@ -10,25 +10,17 @@ from decimal import Decimal
 from enum import Enum
 
 
-class Coin(Enum):
-    """The supported coins (V1 frozen scope: exactly these three).
+class AssetType(Enum):
+    """The type of asset being tracked."""
 
-    Each member carries its market symbol and full display name.
-    Usage: ``Coin.BTC.symbol`` -> "BTC", ``Coin.BTC.full_name`` -> "Bitcoin".
-    """
-
-    BTC = ("BTC", "Bitcoin")
-    ETH = ("ETH", "Ethereum")
-    SOL = ("SOL", "Solana")
-
-    def __init__(self, symbol: str, full_name: str) -> None:
-        self.symbol = symbol
-        self.full_name = full_name
+    CRYPTO = "crypto"
+    FIAT = "fiat"
+    METAL = "metal"
 
 
 @dataclass(frozen=True, slots=True)
 class CryptoPrice:
-    """A snapshot of a single coin's price at a moment in time.
+    """A snapshot of a single asset's price at a moment in time.
 
     Immutable by design: a new observation is a new object
     (use ``dataclasses.replace`` for modified copies).
@@ -40,6 +32,7 @@ class CryptoPrice:
     price_usd: Decimal
     price_toman: Decimal
     change_24h: Decimal
+    type: AssetType
     last_updated: datetime
 
     def __post_init__(self) -> None:

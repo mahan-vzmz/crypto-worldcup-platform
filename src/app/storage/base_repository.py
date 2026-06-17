@@ -80,8 +80,8 @@ class BaseRepository(ABC):
         """
 
     @abstractmethod
-    def load_latest_tournament(self) -> "Cached[Tournament] | None":
-        """Return the most recently saved tournament, or ``None`` if absent.
+    def load_tournament(self, name: str) -> "Cached[Tournament] | None":
+        """Return the most recently saved tournament by name, or ``None`` if absent.
 
         Raises:
             StorageError: if stored data exists but cannot be read.

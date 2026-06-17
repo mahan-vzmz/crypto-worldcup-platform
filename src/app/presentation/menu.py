@@ -9,7 +9,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import IntPrompt, Prompt
 
-from app.models.crypto import Coin
 from app.presentation.renderers import (
     render_price_history,
     render_prices,
@@ -26,10 +25,10 @@ logger = get_logger(__name__)
 _MENU = """\
 [bold]Crypto & World Cup Platform[/bold]
 
-  [cyan]1[/cyan]  All coin prices
-  [cyan]2[/cyan]  Single coin price
-  [cyan]3[/cyan]  Coin price history
-  [cyan]4[/cyan]  World Cup matches
+  [cyan]1[/cyan]  All market prices
+  [cyan]2[/cyan]  Single asset price
+  [cyan]3[/cyan]  Asset price history
+  [cyan]4[/cyan]  Football matches
   [cyan]q[/cyan]  Quit"""
 
 
@@ -62,45 +61,50 @@ class Menu:
         """Run one action, translating any AppError into a friendly line."""
         try:
             if choice == "1":
-                self._show_all_coins()
+                self._show_all_prices()
             elif choice == "2":
-                self._show_single_coin()
+                self._show_single_price()
             elif choice == "3":
                 self._show_price_history()
             elif choice == "4":
-                self._show_world_cup()
+                self._show_football()
         except ConfigError as exc:
             self._console.print(f"[yellow]Unavailable:[/yellow] {exc}")
         except AppError as exc:
             logger.warning("action %s failed: %s", choice, exc)
             self._console.print(f"[red]Sorry, that didn't work:[/red] {exc}")
 
-    def _show_all_coins(self) -> None:
-        result = self._crypto.get_prices(list(Coin))
+    def _show_all_prices(self) -> None:
+        result = self._crypto.get_prices()
         if isinstance(result, Ok):
             self._console.print(render_prices(result.value))
         else:
             self._handle_error(result.error)
 
-    def _show_single_coin(self) -> None:
-        coin = self._ask_coin()
-        result = self._crypto.get_prices([coin])
+    def _show_single_price(self) -> None:
+        symbol = self._ask_symbol()
+        result = self._crypto.get_prices()
         if isinstance(result, Ok):
-            self._console.print(render_prices(result.value))
+            prices = [p for p in result.value if p.symbol == symbol]
+            if prices:
+                self._console.print(render_prices(prices))
+            else:
+                self._console.print(f"[red]Asset {symbol} not found.[/red]")
         else:
             self._handle_error(result.error)
 
     def _show_price_history(self) -> None:
-        coin = self._ask_coin()
+        symbol = self._ask_symbol()
         limit = IntPrompt.ask("How many records", default=10)
-        result = self._crypto.get_price_history(coin, limit=limit)
+        result = self._crypto.get_price_history(symbol, limit=limit)
         if isinstance(result, Ok):
-            self._console.print(render_price_history(coin, result.value))
+            self._console.print(render_price_history(symbol, result.value))
         else:
             self._handle_error(result.error)
 
-    def _show_world_cup(self) -> None:
-        result = self._football.get_tournament()
+    def _show_football(self) -> None:
+        competition = Prompt.ask("Competition Code", default="WC")
+        result = self._football.get_tournament(competition)
         if isinstance(result, Ok):
             self._console.print(render_tournament(result.value))
         else:
@@ -110,6 +114,5 @@ class Menu:
         logger.warning("action failed: %s", exc)
         self._console.print(f"[red]Sorry, that didn't work:[/red] {exc}")
 
-    def _ask_coin(self) -> Coin:
-        symbol = Prompt.ask("Coin", choices=[c.symbol for c in Coin])
-        return next(c for c in Coin if c.symbol == symbol)
+    def _ask_symbol(self) -> str:
+        return Prompt.ask("Asset Symbol (e.g. BTC, ETH, USD, GOLD)").upper()

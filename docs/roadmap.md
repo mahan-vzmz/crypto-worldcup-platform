@@ -16,6 +16,7 @@
 > are also fully shipped!
 > **V3.0.0 is complete.** The OOP and service refactoring is fully implemented, introducing the `Result` type, `CacheStrategyProtocol`, and a DI Container.
 > **V4.0.0 is complete.** The FastAPI REST API presentation layer was added, proving the architecture's decoupling by reusing existing services untouched.
+> **V5.0.0 is complete.** The Web Dashboard with HTMX and the Dynamic Assets domain refactoring have shipped.
 ---
 
 ## Project Vision
@@ -167,11 +168,12 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Technologies introduced:** FastAPI, Pydantic (implicitly via FastAPI), Uvicorn (ASGI).
 - **Learning objectives:** REST design, request validation, the web request lifecycle, API testing.
 
-### Version 5 - Web Dashboard *(Planned)*
-- **Features:** a browser UI consuming the V4 API.
-- **Architectural changes:** a frontend client layer; clean client-server separation.
-- **Technologies introduced:** a web frontend (framework TBD).
-- **Learning objectives:** client-server architecture, frontend-backend integration.
+### Version 5 - Web Dashboard ✅ *(shipped — V5.0.0)*
+- **Status:** Complete. We built a modern, immersive Web Dashboard using Jinja2 and HTMX to consume the FastAPI endpoints. We also refactored the domain (`Coin` enum to dynamic strings) and added `FiatClient` for multi-asset support.
+- **Features:** A browser UI displaying live financial markets (Crypto, Fiat, Metals) and multi-league football, with auto-polling and advanced UI elements.
+- **Architectural changes:** A frontend client layer cleanly separated from the backend; integration of new data providers seamlessly into the existing `CryptoService`.
+- **Technologies introduced:** HTML5, CSS3 (Glassmorphism), Jinja2, HTMX.
+- **Learning objectives:** client-server architecture, hypermedia-driven applications (HTMX), frontend-backend integration.
 
 ### Version 6 - Production Hardening *(Planned)*
 - **Features:** authentication, async processing, containerized deployment.

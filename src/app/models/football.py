@@ -68,18 +68,21 @@ class Match:
 
 @dataclass(frozen=True, slots=True)
 class Tournament:
-    """A tournament snapshot: its matches and current progress.
+    """A snapshot of a tournament's state and matches.
 
-    ``matches`` is a tuple (not a list) so the frozen guarantee is
-    honest: the container cannot be mutated after construction.
+    V2 change: simplified to be purely snapshot-based. The history of a
+    tournament is not tracked, only its latest state.
     """
 
     name: str
+    code: str
     matches: tuple[Match, ...]
     current_stage: str
 
     def __post_init__(self) -> None:
         if not self.name:
-            raise ValueError("name must be a non-empty string")
+            raise ValueError("tournament name cannot be empty")
+        if not self.code:
+            raise ValueError("tournament code cannot be empty")
         if not self.current_stage:
             raise ValueError("current_stage must be a non-empty string")

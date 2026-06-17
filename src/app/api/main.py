@@ -3,8 +3,9 @@ import logging
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.api.routers import crypto, football
+from app.api.routers import crypto, dashboard, football
 from app.utils.exceptions import ConfigError
 from app.utils.logger import setup_logging
 
@@ -21,6 +22,10 @@ def create_app() -> FastAPI:
         version="4.0.0",
     )
 
+    # Mount static assets
+    app.mount("/static", StaticFiles(directory="src/app/static"), name="static")
+
+    app.include_router(dashboard.router)
     app.include_router(crypto.router)
     app.include_router(football.router)
 

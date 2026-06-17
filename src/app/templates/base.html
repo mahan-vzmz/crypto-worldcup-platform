@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Crypto & Football Dashboard{% endblock %}</title>
+    
+    <!-- Modern Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container fade-in">
+        <header class="header">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <h1>Crypto & Football Dashboard</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn-refresh" onclick="htmx.trigger('body', 'refresh-all')">
+                    <i class="fa-solid fa-rotate-right"></i> Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- TradingView Ticker Tape Widget -->
+        <div class="tradingview-widget-container" style="margin-bottom: 2rem; border-radius: 12px; overflow: hidden; border: 1px solid var(--glass-border);">
+            <div class="tradingview-widget-container__widget"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
+            {
+            "symbols": [
+                {"proName": "BINANCE:BTCUSDT", "title": "Bitcoin"},
+                {"proName": "BINANCE:ETHUSDT", "title": "Ethereum"},
+                {"proName": "BINANCE:SOLUSDT", "title": "Solana"},
+                {"proName": "FX_IDC:EURUSD", "title": "EUR/USD"},
+                {"proName": "OANDA:XAUUSD", "title": "Gold"}
+            ],
+            "showSymbolLogo": true,
+            "isTransparent": true,
+            "displayMode": "adaptive",
+            "colorTheme": "dark",
+            "locale": "en"
+            }
+            </script>
+        </div>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        // Trigger a custom event that HTMX elements can listen to for a global refresh
+        document.body.addEventListener('refresh-all', function() {
+            htmx.trigger('.poll-container', 'refresh');
+        });
+    </script>
+</body>
+</html>

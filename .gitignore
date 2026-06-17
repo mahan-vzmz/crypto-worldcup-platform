@@ -21,6 +21,7 @@ data/cache/*
 data/settings/*
 data/history/*
 data/logs/*
+data/*.db
 !data/**/.gitkeep
 
 # IDEs

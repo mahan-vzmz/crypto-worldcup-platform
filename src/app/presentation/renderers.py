@@ -10,7 +10,7 @@ from decimal import Decimal
 from rich.table import Table
 from rich.text import Text
 
-from app.models.crypto import Coin, CryptoPrice
+from app.models.crypto import CryptoPrice
 from app.models.football import Match, MatchStatus, Tournament
 
 
@@ -25,8 +25,8 @@ def _format_change(change_24h: Decimal) -> Text:
 
 def render_prices(prices: list[CryptoPrice]) -> Table:
     """Build a table of coin prices (USD, Toman, 24h change, updated)."""
-    table = Table(title="Cryptocurrency Prices", expand=False)
-    table.add_column("Coin", style="bold cyan")
+    table = Table(title="Market Prices", expand=False)
+    table.add_column("Asset", style="bold cyan")
     table.add_column("USD", justify="right")
     table.add_column("Toman", justify="right")
     table.add_column("24h", justify="right")
@@ -43,9 +43,9 @@ def render_prices(prices: list[CryptoPrice]) -> Table:
     return table
 
 
-def render_price_history(coin: Coin, history: list[CryptoPrice]) -> Table:
-    """Build a table of a single coin's recorded price snapshots (newest first)."""
-    title = f"{coin.symbol} price history ({len(history)} most recent)"
+def render_price_history(symbol: str, history: list[CryptoPrice]) -> Table:
+    """Build a table of a single asset's recorded price snapshots (newest first)."""
+    title = f"{symbol} price history ({len(history)} most recent)"
     table = Table(title=title, expand=False)
     table.add_column("Updated (UTC)", style="dim")
     table.add_column("USD", justify="right")

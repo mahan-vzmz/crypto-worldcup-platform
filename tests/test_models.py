@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.models.crypto import Coin, CryptoPrice
+from app.models.crypto import AssetType, CryptoPrice
 from app.models.football import Match, MatchStatus, Team, Tournament
 
 NOW = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
@@ -25,6 +25,7 @@ def make_price(**overrides: object) -> CryptoPrice:
         "price_usd": Decimal("65000.0"),
         "price_toman": Decimal("4500000000.0"),
         "change_24h": Decimal("2.5"),
+        "type": AssetType.CRYPTO,
         "last_updated": NOW,
     }
     defaults.update(overrides)
@@ -43,17 +44,6 @@ def make_match(**overrides: object) -> Match:
     }
     defaults.update(overrides)
     return Match(**defaults)  # type: ignore[arg-type]
-
-
-class TestCoinEnum:
-    def test_members_carry_symbol_and_full_name(self) -> None:
-        assert Coin.BTC.symbol == "BTC"
-        assert Coin.BTC.full_name == "Bitcoin"
-        assert Coin.ETH.full_name == "Ethereum"
-        assert Coin.SOL.full_name == "Solana"
-
-    def test_scope_is_exactly_three_coins(self) -> None:
-        assert {c.symbol for c in Coin} == {"BTC", "ETH", "SOL"}
 
 
 class TestCryptoPrice:
@@ -149,16 +139,24 @@ class TestTournament:
     def test_happy_path(self) -> None:
         tournament = Tournament(
             name="World Cup 2026",
+            code="WC26",
             matches=(make_match(),),
             current_stage="Group Stage",
         )
         assert tournament.name == "World Cup 2026"
+        assert tournament.code == "WC26"
         assert len(tournament.matches) == 1
 
     def test_empty_name_raises(self) -> None:
         with pytest.raises(ValueError):
-            Tournament(name="", matches=(), current_stage="Group Stage")
+            Tournament(name="", code="WC26", matches=(), current_stage="Group Stage")
+
+    def test_empty_code_raises(self) -> None:
+        with pytest.raises(ValueError):
+            Tournament(
+                name="World Cup 2026", code="", matches=(), current_stage="Group Stage"
+            )
 
     def test_empty_stage_raises(self) -> None:
         with pytest.raises(ValueError):
-            Tournament(name="World Cup 2026", matches=(), current_stage="")
+            Tournament(name="World Cup 2026", code="WC26", matches=(), current_stage="")

@@ -7,41 +7,60 @@ from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_crypto_service, get_football_service
 from app.api.main import app
-from app.models.crypto import Coin, CryptoPrice
+from app.models.crypto import AssetType, CryptoPrice
 from app.models.football import Tournament
 from app.utils.exceptions import APIError
 from app.utils.result import Err, Ok
 
 
 class FakeCryptoService:
-    def get_prices(self, coins: list[Coin]) -> Ok[list[CryptoPrice]] | Err[APIError]:
+    def get_prices(self) -> Ok[list[CryptoPrice]] | Err[APIError]:
         now = datetime.now(UTC)
         return Ok(
             [
                 CryptoPrice(
-                    symbol=c.name,
-                    name=str(c.value),
+                    symbol="BTC",
+                    name="Bitcoin",
                     price_usd=Decimal("50000.0"),
                     price_toman=Decimal("3000000000.0"),
                     change_24h=Decimal("5.0"),
+                    type=AssetType.CRYPTO,
                     last_updated=now,
-                )
-                for c in coins
+                ),
+                CryptoPrice(
+                    symbol="ETH",
+                    name="Ethereum",
+                    price_usd=Decimal("3000.0"),
+                    price_toman=Decimal("180000000.0"),
+                    change_24h=Decimal("2.0"),
+                    type=AssetType.CRYPTO,
+                    last_updated=now,
+                ),
+                CryptoPrice(
+                    symbol="SOL",
+                    name="Solana",
+                    price_usd=Decimal("150.0"),
+                    price_toman=Decimal("9000000.0"),
+                    change_24h=Decimal("10.0"),
+                    type=AssetType.CRYPTO,
+                    last_updated=now,
+                ),
             ]
         )
 
     def get_price_history(
-        self, coin: Coin, *, limit: int = 10
+        self, symbol: str, *, limit: int = 10
     ) -> Ok[list[CryptoPrice]] | Err[APIError]:
         now = datetime.now(UTC)
         return Ok(
             [
                 CryptoPrice(
-                    symbol=coin.name,
-                    name=str(coin.value),
+                    symbol=symbol.upper(),
+                    name="Test Coin",
                     price_usd=Decimal("50000.0"),
                     price_toman=Decimal("3000000000.0"),
                     change_24h=Decimal("5.0"),
+                    type=AssetType.CRYPTO,
                     last_updated=now,
                 )
             ]
@@ -49,8 +68,10 @@ class FakeCryptoService:
 
 
 class FakeFootballService:
-    def get_tournament(self) -> Ok[Tournament] | Err[APIError]:
-        return Ok(Tournament("World Cup", (), "Group Stage"))
+    def get_tournament(
+        self, competition_code: str = "WC"
+    ) -> Ok[Tournament] | Err[APIError]:
+        return Ok(Tournament("World Cup", "WC", (), "Group Stage"))
 
 
 @pytest.fixture

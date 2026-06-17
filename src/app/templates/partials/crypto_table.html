@@ -1,0 +1,48 @@
+{% if crypto_prices %}
+<table>
+    <thead>
+        <tr>
+            <th>Asset</th>
+            <th>Type</th>
+            <th>Price (USD)</th>
+            <th>Price (Toman)</th>
+            <th>24h %</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for price in crypto_prices %}
+        <tr onclick="loadChart('{{ price.symbol }}', '{{ price.type.value }}')" style="cursor: pointer;" title="Click to view chart">
+            <td>
+                <span class="asset-name">{{ price.name }}</span>
+                <span class="asset-symbol">{{ price.symbol }}</span>
+            </td>
+            <td>
+                {% if price.type.value == 'crypto' %}
+                    <span class="badge badge-crypto">Crypto</span>
+                {% elif price.type.value == 'fiat' %}
+                    <span class="badge badge-fiat">Fiat</span>
+                {% else %}
+                    <span class="badge badge-metal">Metal</span>
+                {% endif %}
+            </td>
+            <td class="price-usd">${{ "{:,.2f}".format(price.price_usd) }}</td>
+            <td class="price-toman">{{ "{:,.0f}".format(price.price_toman) }}</td>
+            <td>
+                {% if price.change_24h > 0 %}
+                    <span class="change-positive"><i class="fa-solid fa-arrow-trend-up"></i> {{ "{:.2f}".format(price.change_24h) }}%</span>
+                {% elif price.change_24h < 0 %}
+                    <span class="change-negative"><i class="fa-solid fa-arrow-trend-down"></i> {{ "{:.2f}".format(price.change_24h|abs) }}%</span>
+                {% else %}
+                    <span class="text-muted">-</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+    <p>Market data is currently unavailable.</p>
+</div>
+{% endif %}

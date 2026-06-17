@@ -5,6 +5,7 @@ dependencies cleanly. Replaces manual wiring in main.py (TD-03).
 """
 
 from app.clients.crypto_client import CryptoClient
+from app.clients.fiat_client import FiatClient
 from app.clients.football_client import FootballClient
 from app.clients.protocols import FootballClientProtocol
 from app.config.settings import Settings
@@ -22,7 +23,7 @@ logger = get_logger(__name__)
 class _UnavailableFootballClient:
     """Stand-in used when no football key is configured."""
 
-    def fetch_world_cup(self) -> Tournament:
+    def fetch_tournament(self, competition_code: str) -> Tournament:
         raise ConfigError("FOOTBALL_API_KEY is not set; football data is unavailable")
 
 
@@ -40,11 +41,13 @@ class Container:
 
         # Clients
         self.crypto_client = CryptoClient(api_key=self.settings.crypto_api_key)
+        self.fiat_client = FiatClient()
         self.football_client = self._build_football_client()
 
         # Services
         self.crypto_service = CryptoService(
             client=self.crypto_client,
+            fiat_client=self.fiat_client,
             repository=self.repository,
             cache_strategy=self.cache_strategy,
         )

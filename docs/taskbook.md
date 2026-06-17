@@ -188,6 +188,33 @@
 
 > **V4 status:** All tasks completed! 54 tests green. API exposes existing services without any service layer modifications.
 
+## Milestone V5 — Web Dashboard & Dynamic Domain
+**Epic:** Web Presentation & Dynamic Assets · **Status:** ✅ Complete
+
+- [x] **Dynamic Assets Domain Refactor** — Replaced static `Coin` enum with dynamic strings.
+- [x] **Fiat Support** — Added `FiatClient` for parallel market fetching.
+- [x] **Web Dashboard Core** — FastAPI HTML response routing with Jinja2 and HTMX polling.
+
+---
+
+## Milestone V5.1 — Premium Dashboard
+**Epic:** Production UI · **Status:** ✅ Complete
+
+- [x] **TradingView Integrations** — Add Ticker Tape and Interactive Charts to Web Dashboard.
+- [x] **Immersive UI Refactor** — Responsive feed layout, micro-animations, market news widget.
+
+---
+
+## Milestone V6 — Telegram Bot Integration
+**Epic:** Multi-channel Presentation · **Status:** ✅ Complete
+
+- [x] **Bot Scaffolding** — Added `python-telegram-bot` and new entry point `crypto-wc-bot`.
+- [x] **HTML Formatters** — Added safe MarkdownV2/HTML formatters for market and football data.
+- [x] **Async Wrappers** — Wrapped synchronous service calls in `asyncio.to_thread` for non-blocking handlers.
+- [x] **Interactive Keyboards** — Implemented `/market` command with category switching via inline buttons.
+- [x] **Inline Queries** — Supported typing `@botname btc` in any chat to share market prices.
+- [x] **JobQueue** — Scheduled a daily morning brief (market summary + football schedule) at 08:00 UTC.
+
 ---
 
 ## Definition of Done (V1) — met

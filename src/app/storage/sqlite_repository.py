@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS price_history (
     price_usd    REAL NOT NULL,
     price_toman  REAL NOT NULL,
     change_24h   REAL NOT NULL,
+    asset_type   TEXT NOT NULL DEFAULT 'crypto',
     last_updated TEXT NOT NULL,
     fetched_at   TEXT NOT NULL
 );
@@ -42,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_price_history_symbol
 CREATE TABLE IF NOT EXISTS tournament (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     name          TEXT NOT NULL,
+    code          TEXT NOT NULL DEFAULT 'WC',
     current_stage TEXT NOT NULL,
     fetched_at    TEXT NOT NULL
 );
@@ -68,6 +70,23 @@ class SQLiteRepository(BaseRepository):
         try:
             with self._connect() as conn:
                 conn.executescript(_SCHEMA)
+                # Migration: add asset_type if missing (from V4 to V5 upgrade)
+                try:
+                    conn.execute(
+                        "ALTER TABLE price_history ADD COLUMN asset_type "
+                        "TEXT NOT NULL DEFAULT 'crypto'"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+
+                # Migration: add code if missing (from V4 to V5 upgrade)
+                try:
+                    conn.execute(
+                        "ALTER TABLE tournament ADD COLUMN code "
+                        "TEXT NOT NULL DEFAULT 'WC'"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
         except sqlite3.Error as exc:
             raise StorageError("failed to initialise the database") from exc
 
@@ -99,7 +118,8 @@ class SQLiteRepository(BaseRepository):
                 conn.executemany(
                     "INSERT INTO price_history "
                     "(symbol, name, price_usd, price_toman, change_24h, "
-                    "last_updated, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "asset_type, last_updated, fetched_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     [
                         (
                             p.symbol,
@@ -107,6 +127,7 @@ class SQLiteRepository(BaseRepository):
                             str(p.price_usd),
                             str(p.price_toman),
                             str(p.change_24h),
+                            p.type.value,
                             p.last_updated.isoformat(),
                             fetched_at,
                         )
@@ -155,12 +176,19 @@ class SQLiteRepository(BaseRepository):
         fetched_at = datetime.now(UTC).isoformat()
         try:
             with self._connect() as conn:
-                # Snapshot-only: drop the previous tournament (matches cascade).
-                conn.execute("DELETE FROM tournament")
+                # Delete only this specific tournament
+                conn.execute(
+                    "DELETE FROM tournament WHERE code = ?", (tournament.code,)
+                )
                 cursor = conn.execute(
-                    "INSERT INTO tournament (name, current_stage, fetched_at) "
-                    "VALUES (?, ?, ?)",
-                    (tournament.name, tournament.current_stage, fetched_at),
+                    "INSERT INTO tournament (name, code, current_stage, fetched_at) "
+                    "VALUES (?, ?, ?, ?)",
+                    (
+                        tournament.name,
+                        tournament.code,
+                        tournament.current_stage,
+                        fetched_at,
+                    ),
                 )
                 tournament_id = cursor.lastrowid
                 conn.executemany(
@@ -186,11 +214,13 @@ class SQLiteRepository(BaseRepository):
             raise StorageError("failed to save tournament") from exc
         logger.debug("saved tournament with %d matches", len(tournament.matches))
 
-    def load_latest_tournament(self) -> Cached[Tournament] | None:
+    def load_tournament(self, name: str) -> Cached[Tournament] | None:
         try:
             with self._connect() as conn:
                 trow = conn.execute(
-                    "SELECT * FROM tournament ORDER BY fetched_at DESC, id DESC LIMIT 1"
+                    "SELECT * FROM tournament WHERE code = ? "
+                    "ORDER BY fetched_at DESC, id DESC LIMIT 1",
+                    (name,),
                 ).fetchone()
                 if trow is None:
                     return None
@@ -202,6 +232,7 @@ class SQLiteRepository(BaseRepository):
             raise StorageError("failed to load tournament") from exc
         tournament = Tournament(
             name=trow["name"],
+            code=trow["code"],
             matches=tuple(self._row_to_match(row) for row in mrows),
             current_stage=trow["current_stage"],
         )
@@ -214,12 +245,15 @@ class SQLiteRepository(BaseRepository):
 
     @staticmethod
     def _row_to_price(row: sqlite3.Row) -> CryptoPrice:
+        from app.models.crypto import AssetType
+
         return CryptoPrice(
             symbol=row["symbol"],
             name=row["name"],
             price_usd=Decimal(str(row["price_usd"])),
             price_toman=Decimal(str(row["price_toman"])),
             change_24h=Decimal(str(row["change_24h"])),
+            type=AssetType(row["asset_type"]),
             last_updated=datetime.fromisoformat(row["last_updated"]),
         )
 
