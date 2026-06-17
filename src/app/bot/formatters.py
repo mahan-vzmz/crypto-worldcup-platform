@@ -1,7 +1,7 @@
 """Formatters for Telegram messages using HTML parse mode."""
 
 import html
-from typing import Sequence
+from collections.abc import Sequence
 
 from app.models.crypto import CryptoPrice
 from app.models.football import MatchStatus, Tournament
@@ -16,7 +16,7 @@ def format_prices(prices: Sequence[CryptoPrice], title: str = "Market Prices") -
     for p in prices:
         symbol = html.escape(p.symbol)
         name = html.escape(p.name)
-        
+
         # Handle small numbers gracefully (like SHIB)
         usd = f"${p.price_usd:,.4f}" if p.price_usd < 1 else f"${p.price_usd:,.2f}"
         toman = f"{p.price_toman:,.0f} T"
@@ -30,9 +30,7 @@ def format_prices(prices: Sequence[CryptoPrice], title: str = "Market Prices") -
             trend = "⚪ 0.00%"
 
         lines.append(
-            f"🔹 <b>{symbol}</b> ({name})\n"
-            f"💵 {usd} | 🇮🇷 {toman}\n"
-            f"📈 24h: {trend}\n"
+            f"🔹 <b>{symbol}</b> ({name})\n💵 {usd} | 🇮🇷 {toman}\n📈 24h: {trend}\n"
         )
 
     lines.append("\n<i>Showing top results. Use /price &lt;symbol&gt; for others.</i>")
@@ -67,8 +65,6 @@ def format_tournament(tournament: Tournament) -> str:
 
         time_str = m.kickoff.strftime("%H:%M UTC")
 
-        lines.append(
-            f"{status_icon} <b>{home}</b> {score} <b>{away}</b> 🕒 {time_str}"
-        )
+        lines.append(f"{status_icon} <b>{home}</b> {score} <b>{away}</b> 🕒 {time_str}")
 
     return "\n".join(lines)

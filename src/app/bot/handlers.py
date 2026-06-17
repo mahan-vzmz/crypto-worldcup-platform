@@ -35,7 +35,7 @@ async def market_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         ],
         [
             InlineKeyboardButton("🥇 Metals", callback_data="market_metal"),
-        ]
+        ],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -59,7 +59,9 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     res = await asyncio.to_thread(crypto_service.get_prices)
 
     if not isinstance(res, Ok):
-        await query.edit_message_text("⚠️ Failed to fetch market data. Please try again.")
+        await query.edit_message_text(
+            "⚠️ Failed to fetch market data. Please try again."
+        )
         return
 
     all_prices = res.value
@@ -67,7 +69,7 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # Filter by category and limit to prevent Message_too_long errors
     filtered = [p for p in all_prices if p.type.value == category]
-    
+
     # Telegram max message length is 4096 chars. 30 items is safe.
     if len(filtered) > 30:
         filtered = filtered[:30]
@@ -75,7 +77,7 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     titles = {
         "crypto": "Cryptocurrency Prices",
         "fiat": "Fiat Exchange Rates",
-        "metal": "Precious Metals"
+        "metal": "Precious Metals",
     }
 
     msg = format_prices(filtered, titles.get(category, "Market Prices"))
@@ -88,7 +90,7 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         ],
         [
             InlineKeyboardButton("🥇 Metals", callback_data="market_metal"),
-        ]
+        ],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -120,7 +122,9 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Get the price of a specific symbol."""
     if not context.args:
         if update.message:
-            await update.message.reply_text("Please provide a symbol. Example: /price BTC")
+            await update.message.reply_text(
+                "Please provide a symbol. Example: /price BTC"
+            )
         return
 
     symbol = context.args[0].upper()

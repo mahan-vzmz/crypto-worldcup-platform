@@ -20,7 +20,9 @@ async def morning_brief(context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = settings.telegram_broadcast_chat_id
 
     if not chat_id:
-        logger.warning("Morning brief job ran, but TELEGRAM_BROADCAST_CHAT_ID is not set.")
+        logger.warning(
+            "Morning brief job ran, but TELEGRAM_BROADCAST_CHAT_ID is not set."
+        )
         return
 
     logger.info("Sending morning brief to %s", chat_id)
@@ -51,9 +53,7 @@ async def morning_brief(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         await context.bot.send_message(
-            chat_id=chat_id,
-            text=market_msg,
-            parse_mode="HTML"
+            chat_id=chat_id, text=market_msg, parse_mode="HTML"
         )
     except Exception as e:
         logger.error("Failed to send morning brief: %s", e)

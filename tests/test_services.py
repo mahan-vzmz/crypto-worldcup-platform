@@ -24,6 +24,8 @@ SETTINGS = Settings(
     crypto_api_key="dummy_crypto",
     football_api_key="dummy_football",
     cache_ttl_seconds=300,
+    telegram_bot_token="dummy_token",
+    telegram_broadcast_chat_id="dummy_chat",
 )
 
 

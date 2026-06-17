@@ -40,23 +40,20 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     else:
         # Match symbol or name
         display_prices = [
-            p for p in all_prices
-            if text in p.symbol.upper() or text in p.name.upper()
+            p for p in all_prices if text in p.symbol.upper() or text in p.name.upper()
         ]
 
     for p in display_prices:
         msg = format_prices([p], f"{p.symbol} Price")
         # Format preview description safely
         desc_usd = f"${p.price_usd:,.4f}" if p.price_usd < 1 else f"${p.price_usd:,.2f}"
-        
+
         results.append(
             InlineQueryResultArticle(
                 id=str(uuid4()),
                 title=f"{p.symbol} - {p.name}",
                 description=f"{desc_usd} | {p.price_toman:,.0f} T",
-                input_message_content=InputTextMessageContent(
-                    msg, parse_mode="HTML"
-                ),
+                input_message_content=InputTextMessageContent(msg, parse_mode="HTML"),
             )
         )
 

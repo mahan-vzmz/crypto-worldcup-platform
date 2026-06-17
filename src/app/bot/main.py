@@ -1,7 +1,7 @@
 """Entry point for the Telegram bot."""
 
-import logging
 import datetime
+import logging
 
 from telegram.ext import (
     ApplicationBuilder,
@@ -55,7 +55,7 @@ def run_bot(container: Container) -> None:
 
     # Start Polling
     if application.job_queue:
-        time_8am = datetime.time(hour=8, minute=0, tzinfo=datetime.timezone.utc)
+        time_8am = datetime.time(hour=8, minute=0, tzinfo=datetime.UTC)
         application.job_queue.run_daily(morning_brief, time=time_8am)
         logger.info("Morning brief scheduled for 08:00 UTC daily.")
 

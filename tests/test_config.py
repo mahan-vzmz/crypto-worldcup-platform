@@ -87,6 +87,8 @@ class TestDirectories:
             cache_ttl_seconds=300,
             crypto_api_key="",
             football_api_key="",
+            telegram_bot_token="",
+            telegram_broadcast_chat_id="",
         )
         settings.ensure_directories()
         assert settings.cache_dir.is_dir()
