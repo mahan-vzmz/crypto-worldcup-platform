@@ -26,7 +26,7 @@ def main() -> None:
 
     # Initialize the database schema
     import asyncio
-    asyncio.run(container.repository().initialize())
+    asyncio.run(container.repository.initialize())
 
     try:
         run_bot(container)

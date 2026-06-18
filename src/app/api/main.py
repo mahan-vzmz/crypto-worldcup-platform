@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Lifecycle events for the FastAPI application."""
     container = get_container()
-    await container.repository().initialize()
+    await container.repository.initialize()
     yield
 
 def create_app() -> FastAPI:

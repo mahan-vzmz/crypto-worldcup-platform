@@ -45,7 +45,7 @@ async def async_main() -> None:
     container = Container(settings)
 
     # 5. Initialize Database schema
-    await container.repository().initialize()
+    await container.repository.initialize()
 
     # 6. Launch the presentation layer.
     await Menu(
