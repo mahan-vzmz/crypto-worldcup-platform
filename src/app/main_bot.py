@@ -18,7 +18,7 @@ def main() -> None:
         sys.exit(1)
 
     settings.ensure_directories()
-    setup_logging(settings.logs_dir)
+    setup_logging(settings.logs_dir, log_filename="bot.log")
     logger = get_logger(__name__)
     logger.info("Starting Telegram Bot entry point; data_dir=%s", settings.data_dir)
 

@@ -32,6 +32,7 @@ _BACKUP_COUNT = 3  # keep app.log plus three rolled-over copies
 def setup_logging(
     log_dir: Path = _DEFAULT_LOG_DIR,
     *,
+    log_filename: str = _LOG_FILENAME,
     console_level: int = logging.WARNING,
     file_level: int = logging.DEBUG,
 ) -> None:
@@ -49,7 +50,7 @@ def setup_logging(
             log file holds a complete diagnostic record.
     """
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / _LOG_FILENAME
+    log_path = log_dir / log_filename
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)

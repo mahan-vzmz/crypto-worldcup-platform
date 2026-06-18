@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    setup_logging()
+    setup_logging(log_filename="api.log")
 
     app = FastAPI(
         title="Crypto & World Cup API",

@@ -37,7 +37,7 @@ async def async_main() -> None:
     settings.ensure_directories()
 
     # 3. Configure logging once, at the root.
-    setup_logging(settings.logs_dir)
+    setup_logging(settings.logs_dir, log_filename="cli.log")
     logger = get_logger(__name__)
     logger.info("starting platform; data_dir=%s", settings.data_dir)
 
