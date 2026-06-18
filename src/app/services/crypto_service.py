@@ -38,19 +38,19 @@ class CryptoService:
         self._repository = repository
         self._cache_strategy = cache_strategy
 
-    def get_prices(self) -> Result[list[CryptoPrice], APIError]:
+    async def get_prices(self) -> Result[list[CryptoPrice], APIError]:
         """Return prices, preferring fresh cache, then API, then stale cache.
 
         Returns an Ok with prices on success, or an Err with an APIError
         if the API fails and no cache exists at all.
         """
-        cached = self._repository.load_latest_prices()
+        cached = await self._repository.load_latest_prices()
         if cached is not None and self._cache_strategy.is_fresh(cached.fetched_at):
             logger.debug("crypto cache hit (fresh)")
             return Ok(cached.data)
 
         try:
-            prices = self._client.fetch_prices()
+            prices = await self._client.fetch_prices()
         except APIError as exc:
             if cached is not None:
                 logger.warning("crypto API unavailable; serving stale cache")
@@ -67,7 +67,7 @@ class CryptoService:
 
         if usd_price_toman is not None:
             try:
-                rates = self._fiat_client.fetch_rates("USD")
+                rates = await self._fiat_client.fetch_rates("USD")
                 fetched_at = datetime.now(UTC)
 
                 # Euro
@@ -102,16 +102,16 @@ class CryptoService:
             except APIError as exc:
                 logger.warning(f"Failed to fetch fiat rates: {exc}")
 
-        self._repository.save_prices(prices)
+        await self._repository.save_prices(prices)
         logger.debug("crypto cache refreshed from API")
         return Ok(prices)
 
-    def get_price_history(
+    async def get_price_history(
         self, symbol: str, *, limit: int = 10
     ) -> Result[list[CryptoPrice], APIError]:
         """Return up to *limit* most-recent recorded prices for *symbol*.
 
         Reads straight from storage (no network), so it never fails with APIError.
         """
-        prices = self._repository.get_price_history(symbol.upper(), limit=limit)
+        prices = await self._repository.get_price_history(symbol.upper(), limit=limit)
         return Ok(prices)

@@ -11,11 +11,11 @@ router = APIRouter(prefix="/crypto", tags=["Crypto"])
 
 
 @router.get("/prices", response_model=list[CryptoPrice])
-def get_all_prices(
+async def get_all_prices(
     crypto_service: Annotated[CryptoService, Depends(get_crypto_service)],
 ) -> list[CryptoPrice]:
     """Retrieve current prices for all supported assets."""
-    result = crypto_service.get_prices()
+    result = await crypto_service.get_prices()
     match result:
         case Ok(prices):
             return prices
@@ -28,12 +28,12 @@ def get_all_prices(
 
 
 @router.get("/prices/{symbol}", response_model=CryptoPrice)
-def get_coin_price(
+async def get_coin_price(
     symbol: str,
     crypto_service: Annotated[CryptoService, Depends(get_crypto_service)],
 ) -> CryptoPrice:
     """Retrieve the current price for a specific asset."""
-    result = crypto_service.get_prices()
+    result = await crypto_service.get_prices()
     match result:
         case Ok(prices):
             symbol_upper = symbol.upper()
@@ -53,13 +53,13 @@ def get_coin_price(
 
 
 @router.get("/history/{symbol}", response_model=list[CryptoPrice])
-def get_price_history(
+async def get_price_history(
     symbol: str,
     crypto_service: Annotated[CryptoService, Depends(get_crypto_service)],
     limit: int = 10,
 ) -> list[CryptoPrice]:
     """Retrieve the price history for a specific asset."""
-    result = crypto_service.get_price_history(symbol, limit=limit)
+    result = await crypto_service.get_price_history(symbol, limit=limit)
     match result:
         case Ok(prices):
             if not prices:

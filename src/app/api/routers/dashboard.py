@@ -22,8 +22,8 @@ async def dashboard_index(
     football_service: Annotated[FootballService, Depends(get_football_service)],
 ) -> HTMLResponse:
     """Render the full dashboard with all panels."""
-    crypto_res = crypto_service.get_prices()
-    football_res = football_service.get_tournament("WC")
+    crypto_res = await crypto_service.get_prices()
+    football_res = await football_service.get_tournament("WC")
 
     crypto_prices = crypto_res.value if isinstance(crypto_res, Ok) else []
     tournament = football_res.value if isinstance(football_res, Ok) else None
@@ -44,7 +44,7 @@ async def partial_crypto(
     crypto_service: Annotated[CryptoService, Depends(get_crypto_service)],
 ) -> HTMLResponse:
     """Render the crypto table partial for HTMX polling."""
-    crypto_res = crypto_service.get_prices()
+    crypto_res = await crypto_service.get_prices()
     crypto_prices = crypto_res.value if isinstance(crypto_res, Ok) else []
 
     return templates.TemplateResponse(
@@ -61,7 +61,7 @@ async def partial_football(
     football_service: Annotated[FootballService, Depends(get_football_service)],
 ) -> HTMLResponse:
     """Render the football table partial for HTMX polling."""
-    football_res = football_service.get_tournament(competition_code)
+    football_res = await football_service.get_tournament(competition_code)
     tournament = football_res.value if isinstance(football_res, Ok) else None
 
     return templates.TemplateResponse(

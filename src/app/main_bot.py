@@ -24,6 +24,10 @@ def main() -> None:
 
     container = Container(settings)
 
+    # Initialize the database schema
+    import asyncio
+    asyncio.run(container.repository().initialize())
+
     try:
         run_bot(container)
     except Exception as e:

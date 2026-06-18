@@ -29,7 +29,7 @@ class FootballService:
         self._repository = repository
         self._cache_strategy = cache_strategy
 
-    def get_tournament(
+    async def get_tournament(
         self, competition_code: str = "WC"
     ) -> Result[Tournament, APIError]:
         """Return the tournament, preferring fresh cache, then API, then stale.
@@ -37,13 +37,13 @@ class FootballService:
         Returns an Ok with the Tournament on success, or an Err with an APIError
         if the API fails and no cache exists at all.
         """
-        cached = self._repository.load_tournament(competition_code)
+        cached = await self._repository.load_tournament(competition_code)
         if cached is not None and self._cache_strategy.is_fresh(cached.fetched_at):
             logger.debug(f"football cache hit for {competition_code} (fresh)")
             return Ok(cached.data)
 
         try:
-            tournament = self._client.fetch_tournament(competition_code)
+            tournament = await self._client.fetch_tournament(competition_code)
         except APIError as exc:
             if cached is not None:
                 logger.warning(
@@ -54,6 +54,6 @@ class FootballService:
             logger.error("football API unavailable and no cache to fall back on")
             return Err(exc)
 
-        self._repository.save_tournament(tournament)
+        await self._repository.save_tournament(tournament)
         logger.debug(f"football cache refreshed from API for {competition_code}")
         return Ok(tournament)

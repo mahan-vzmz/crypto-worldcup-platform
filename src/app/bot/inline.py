@@ -23,7 +23,7 @@ async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     container = cast(Container, context.bot_data.get("container"))
     crypto_service = container.crypto_service
 
-    res = await asyncio.to_thread(crypto_service.get_prices)
+    res = await crypto_service.get_prices()
     if not isinstance(res, Ok):
         return
 

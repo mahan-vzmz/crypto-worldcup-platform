@@ -5,6 +5,7 @@ into tables and deserialize back exactly as they were? We use in-memory
 or temporary databases so tests remain fast and isolated.
 """
 
+import pytest
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -15,10 +16,12 @@ from app.models.football import Match, MatchStatus, Team, Tournament
 from app.storage.sqlite_repository import SQLiteRepository
 
 
-def make_repo(tmp_path: Path) -> SQLiteRepository:
+async def make_repo(tmp_path: Path) -> SQLiteRepository:
     """Provide a fresh repository pointing to a temporary file."""
     db = tmp_path / "test.db"
-    return SQLiteRepository(db_path=db)
+    repo = SQLiteRepository(db_path=db)
+    await repo.initialize()
+    return repo
 
 
 def a_price(
@@ -61,92 +64,101 @@ def a_tournament() -> Tournament:
 
 
 class TestPricesRoundTrip:
-    def test_save_then_load_latest(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
+    @pytest.mark.asyncio
+    async def test_save_then_load_latest(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
         prices = [a_price("BTC"), a_price("ETH")]
 
-        repo.save_prices(prices)
-        cached = repo.load_latest_prices()
+        await repo.save_prices(prices)
+        cached = await repo.load_latest_prices()
 
         assert cached is not None
         assert cached.data == prices
         assert (datetime.now(UTC) - cached.fetched_at).total_seconds() < 1.0
 
-    def test_load_on_empty_returns_none(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
-        assert repo.load_latest_prices() is None
+    @pytest.mark.asyncio
+    async def test_load_on_empty_returns_none(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
+        assert await repo.load_latest_prices() is None
 
-    def test_latest_reflects_most_recent_batch(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
+    @pytest.mark.asyncio
+    async def test_latest_reflects_most_recent_batch(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
 
         batch1 = [a_price("BTC", Decimal("60000.0"))]
-        repo.save_prices(batch1)
+        await repo.save_prices(batch1)
         time.sleep(0.01)
 
         batch2 = [a_price("BTC", Decimal("65000.0"))]
-        repo.save_prices(batch2)
+        await repo.save_prices(batch2)
 
-        cached = repo.load_latest_prices()
+        cached = await repo.load_latest_prices()
         assert cached is not None
         assert cached.data == batch2
 
 
 class TestPriceHistory:
-    def test_history_is_newest_first_and_limited(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
+    @pytest.mark.asyncio
+    async def test_history_is_newest_first_and_limited(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
 
-        repo.save_prices([a_price("BTC", Decimal("100.0"))])
+        await repo.save_prices([a_price("BTC", Decimal("100.0"))])
         time.sleep(0.01)
-        repo.save_prices([a_price("BTC", Decimal("110.0"))])
+        await repo.save_prices([a_price("BTC", Decimal("110.0"))])
         time.sleep(0.01)
-        repo.save_prices([a_price("BTC", Decimal("120.0"))])
+        await repo.save_prices([a_price("BTC", Decimal("120.0"))])
 
-        history = repo.get_price_history("BTC", limit=2)
+        history = await repo.get_price_history("BTC", limit=2)
 
         assert len(history) == 2
         assert history[0].price_usd == Decimal("120.0")
         assert history[1].price_usd == Decimal("110.0")
 
-    def test_history_filters_by_symbol(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
-        repo.save_prices([a_price("BTC"), a_price("ETH", Decimal("3000.0"))])
-        repo.save_prices([a_price("BTC"), a_price("SOL", Decimal("150.0"))])
+    @pytest.mark.asyncio
+    async def test_history_filters_by_symbol(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
+        await repo.save_prices([a_price("BTC"), a_price("ETH", Decimal("3000.0"))])
+        await repo.save_prices([a_price("BTC"), a_price("SOL", Decimal("150.0"))])
 
-        history = repo.get_price_history("ETH", limit=10)
+        history = await repo.get_price_history("ETH", limit=10)
 
         assert len(history) == 1
         assert history[0].symbol == "ETH"
 
-    def test_zero_limit_returns_empty(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
-        repo.save_prices([a_price("BTC")])
+    @pytest.mark.asyncio
+    async def test_zero_limit_returns_empty(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
+        await repo.save_prices([a_price("BTC")])
 
-        history = repo.get_price_history("BTC", limit=0)
+        history = await repo.get_price_history("BTC", limit=0)
 
         assert history == []
 
 
 class TestTournamentRoundTrip:
-    def test_save_then_load(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
+    @pytest.mark.asyncio
+    async def test_save_then_load(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
         tournament = a_tournament()
 
-        repo.save_tournament(tournament)
-        cached = repo.load_tournament("WC")
+        await repo.save_tournament(tournament)
+        cached = await repo.load_tournament("WC")
 
         assert cached is not None
         assert cached.data == tournament
         assert (datetime.now(UTC) - cached.fetched_at).total_seconds() < 1.0
 
-    def test_load_on_empty_returns_none(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
-        assert repo.load_tournament("WC") is None
+    @pytest.mark.asyncio
+    async def test_load_on_empty_returns_none(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
+        assert await repo.load_tournament("WC") is None
 
-    def test_save_replaces_previous_snapshot(self, tmp_path: Path) -> None:
-        repo = make_repo(tmp_path)
+    @pytest.mark.asyncio
+    async def test_save_replaces_previous_snapshot(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
 
         first = a_tournament()
-        repo.save_tournament(first)
+        await repo.save_tournament(first)
         time.sleep(0.01)
 
         second = Tournament(
@@ -155,20 +167,26 @@ class TestTournamentRoundTrip:
             matches=first.matches[:1],
             current_stage="Finished",
         )
-        repo.save_tournament(second)
+        await repo.save_tournament(second)
 
-        cached = repo.load_tournament("WC")
+        cached = await repo.load_tournament("WC")
         assert cached is not None
         assert cached.data == second
         assert len(cached.data.matches) == 1
 
 
 class TestPersistence:
-    def test_data_survives_a_new_repository_instance(self, tmp_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_data_survives_a_new_repository_instance(self, tmp_path: Path) -> None:
         db = tmp_path / "test.db"
 
-        SQLiteRepository(db_path=db).save_prices([a_price("BTC")])
-        cached = SQLiteRepository(db_path=db).load_latest_prices()
+        repo1 = SQLiteRepository(db_path=db)
+        await repo1.initialize()
+        await repo1.save_prices([a_price("BTC")])
+        
+        repo2 = SQLiteRepository(db_path=db)
+        await repo2.initialize()
+        cached = await repo2.load_latest_prices()
 
         assert cached is not None
         assert cached.data[0].symbol == "BTC"

@@ -31,7 +31,7 @@ class FiatClient(BaseAPIClient):
             max_retries=max_retries,
         )
 
-    def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
+    async def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
         """Fetch the exchange rates relative to *base_currency*.
 
         Returns a dictionary mapping currency codes to their rate relative
@@ -40,7 +40,7 @@ class FiatClient(BaseAPIClient):
         Raises:
             APIError: on any transport failure or unexpected payload.
         """
-        payload = self.get_json(f"/{base_currency}")
+        payload = await self.get_json(f"/{base_currency}")
         if not isinstance(payload, dict) or "rates" not in payload:
             raise APIError("Fiat API returned an unexpected payload shape")
 

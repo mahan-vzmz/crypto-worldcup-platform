@@ -29,7 +29,7 @@ async def morning_brief(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # 1. Fetch Market Overview
     crypto_service = container.crypto_service
-    res_crypto = await asyncio.to_thread(crypto_service.get_prices)
+    res_crypto = await crypto_service.get_prices()
 
     market_msg = "<b>🌞 Good Morning! Here is your daily update.</b>\n\n"
     if isinstance(res_crypto, Ok):
@@ -44,7 +44,7 @@ async def morning_brief(context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # 2. Fetch Football Overview
     football_service = container.football_service
-    res_football = await asyncio.to_thread(football_service.get_tournament, "WC")
+    res_football = await football_service.get_tournament("WC")
 
     if isinstance(res_football, Ok):
         market_msg += format_tournament(res_football.value)

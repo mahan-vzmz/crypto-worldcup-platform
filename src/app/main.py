@@ -8,6 +8,7 @@ import across all layers.
 V3: Introduced a DI Container to remove manual wiring logic (TD-03).
 """
 
+import asyncio
 import sys
 
 from rich.console import Console
@@ -19,7 +20,7 @@ from app.utils.exceptions import ConfigError
 from app.utils.logger import get_logger, setup_logging
 
 
-def main() -> None:
+async def async_main() -> None:
     """Entry point for the Crypto & World Cup Information Platform."""
     console = Console()
 
@@ -43,12 +44,18 @@ def main() -> None:
     # 4. Build the DI Container.
     container = Container(settings)
 
-    # 5. Launch the presentation layer.
-    Menu(
+    # 5. Initialize Database schema
+    await container.repository().initialize()
+
+    # 6. Launch the presentation layer.
+    await Menu(
         crypto_service=container.crypto_service,
         football_service=container.football_service,
         console=console,
     ).run()
+
+def main() -> None:
+    asyncio.run(async_main())
 
 
 if __name__ == "__main__":

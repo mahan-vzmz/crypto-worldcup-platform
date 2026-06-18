@@ -45,7 +45,7 @@ class Menu:
         self._football = football_service
         self._console = console or Console()
 
-    def run(self) -> None:
+    async def run(self) -> None:
         """Main loop. Returns when the user chooses to quit."""
         self._console.print(Panel(_MENU, border_style="magenta", expand=False))
         while True:
@@ -55,35 +55,35 @@ class Menu:
             if choice == "q":
                 self._console.print("[dim]Goodbye.[/dim]")
                 return
-            self._dispatch(choice)
+            await self._dispatch(choice)
 
-    def _dispatch(self, choice: str) -> None:
+    async def _dispatch(self, choice: str) -> None:
         """Run one action, translating any AppError into a friendly line."""
         try:
             if choice == "1":
-                self._show_all_prices()
+                await self._show_all_prices()
             elif choice == "2":
-                self._show_single_price()
+                await self._show_single_price()
             elif choice == "3":
-                self._show_price_history()
+                await self._show_price_history()
             elif choice == "4":
-                self._show_football()
+                await self._show_football()
         except ConfigError as exc:
             self._console.print(f"[yellow]Unavailable:[/yellow] {exc}")
         except AppError as exc:
             logger.warning("action %s failed: %s", choice, exc)
             self._console.print(f"[red]Sorry, that didn't work:[/red] {exc}")
 
-    def _show_all_prices(self) -> None:
-        result = self._crypto.get_prices()
+    async def _show_all_prices(self) -> None:
+        result = await self._crypto.get_prices()
         if isinstance(result, Ok):
             self._console.print(render_prices(result.value))
         else:
             self._handle_error(result.error)
 
-    def _show_single_price(self) -> None:
+    async def _show_single_price(self) -> None:
         symbol = self._ask_symbol()
-        result = self._crypto.get_prices()
+        result = await self._crypto.get_prices()
         if isinstance(result, Ok):
             prices = [p for p in result.value if p.symbol == symbol]
             if prices:
@@ -93,18 +93,18 @@ class Menu:
         else:
             self._handle_error(result.error)
 
-    def _show_price_history(self) -> None:
+    async def _show_price_history(self) -> None:
         symbol = self._ask_symbol()
         limit = IntPrompt.ask("How many records", default=10)
-        result = self._crypto.get_price_history(symbol, limit=limit)
+        result = await self._crypto.get_price_history(symbol, limit=limit)
         if isinstance(result, Ok):
             self._console.print(render_price_history(symbol, result.value))
         else:
             self._handle_error(result.error)
 
-    def _show_football(self) -> None:
+    async def _show_football(self) -> None:
         competition = Prompt.ask("Competition Code", default="WC")
-        result = self._football.get_tournament(competition)
+        result = await self._football.get_tournament(competition)
         if isinstance(result, Ok):
             self._console.print(render_tournament(result.value))
         else:

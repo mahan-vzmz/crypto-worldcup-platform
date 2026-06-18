@@ -39,13 +39,13 @@ class CryptoClient(BaseAPIClient):
             headers=headers,
         )
 
-    def fetch_prices(self) -> list[CryptoPrice]:
+    async def fetch_prices(self) -> list[CryptoPrice]:
         """Fetch current prices for all available assets in a single HTTP request.
 
         Raises:
             APIError: on any transport failure or unexpected payload shape.
         """
-        payload = self.get_json("/markets")
+        payload = await self.get_json("/markets")
         if not isinstance(payload, dict) or "result" not in payload:
             raise APIError("Wallex returned an unexpected payload shape")
 

@@ -6,6 +6,7 @@ The BaseRepository ABC is what makes the fake repository a drop-in;
 FakeCryptoClient structurally satisfies CryptoClientProtocol (no inheritance).
 """
 
+import pytest
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -50,22 +51,22 @@ class FakeRepository(BaseRepository):
         self._tournament: Cached[Tournament] | None = None
         self.save_calls = 0
 
-    def save_prices(self, prices: list[CryptoPrice]) -> None:
+    async def save_prices(self, prices: list[CryptoPrice]) -> None:
         self.save_calls += 1
         self._prices = Cached(data=list(prices), fetched_at=datetime.now(UTC))
         self._history = list(prices) + self._history
 
-    def load_latest_prices(self) -> Cached[list[CryptoPrice]] | None:
+    async def load_latest_prices(self) -> Cached[list[CryptoPrice]] | None:
         return self._prices
 
-    def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
+    async def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
         return [p for p in self._history if p.symbol == symbol][:limit]
 
-    def save_tournament(self, tournament: Tournament) -> None:
+    async def save_tournament(self, tournament: Tournament) -> None:
         self.save_calls += 1
         self._tournament = Cached(data=tournament, fetched_at=datetime.now(UTC))
 
-    def load_tournament(self, name: str) -> Cached[Tournament] | None:
+    async def load_tournament(self, name: str) -> Cached[Tournament] | None:
         return self._tournament
 
     def seed_prices(self, prices: list[CryptoPrice], *, age_seconds: int) -> None:
@@ -84,7 +85,7 @@ class FakeCryptoClient:
         self._fail = fail
         self.fetch_calls = 0
 
-    def fetch_prices(self) -> list[CryptoPrice]:
+    async def fetch_prices(self) -> list[CryptoPrice]:
         self.fetch_calls += 1
         if self._fail:
             raise APIError("simulated outage")
@@ -92,7 +93,7 @@ class FakeCryptoClient:
 
 
 class FakeFiatClient:
-    def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
+    async def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
         return {}
 
 
@@ -102,13 +103,14 @@ def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoServi
 
 
 class TestFreshCacheHit:
-    def test_serves_cache_without_calling_client(self) -> None:
+    @pytest.mark.asyncio
+    async def test_serves_cache_without_calling_client(self) -> None:
         repo = FakeRepository()
         repo.seed_prices([a_price()], age_seconds=10)
         client = FakeCryptoClient(fail=True)  # would raise if called
         service = build_service(client, repo)
 
-        result = service.get_prices()
+        result = await service.get_prices()
 
         assert client.fetch_calls == 0
         assert isinstance(result, Ok)
@@ -116,39 +118,42 @@ class TestFreshCacheHit:
 
 
 class TestStaleAndMiss:
-    def test_stale_cache_triggers_fetch_and_save(self) -> None:
+    @pytest.mark.asyncio
+    async def test_stale_cache_triggers_fetch_and_save(self) -> None:
         repo = FakeRepository()
         repo.seed_prices([a_price()], age_seconds=10_000)
         fresh = [a_price()]
         client = FakeCryptoClient(fresh)
         service = build_service(client, repo)
 
-        result = service.get_prices()
+        result = await service.get_prices()
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 1
         assert isinstance(result, Ok)
         assert result.value == fresh
 
-    def test_cache_miss_triggers_fetch_and_save(self) -> None:
+    @pytest.mark.asyncio
+    async def test_cache_miss_triggers_fetch_and_save(self) -> None:
         repo = FakeRepository()
         client = FakeCryptoClient([a_price()])
         service = build_service(client, repo)
 
-        service.get_prices()
+        await service.get_prices()
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 1
 
 
 class TestOfflineFallback:
-    def test_api_failure_with_stale_cache_serves_stale(self) -> None:
+    @pytest.mark.asyncio
+    async def test_api_failure_with_stale_cache_serves_stale(self) -> None:
         repo = FakeRepository()
         repo.seed_prices([a_price()], age_seconds=10_000)
         client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
-        result = service.get_prices()
+        result = await service.get_prices()
 
         assert client.fetch_calls == 1
         assert repo.save_calls == 0  # nothing fresh to save
@@ -157,24 +162,26 @@ class TestOfflineFallback:
 
 
 class TestCompleteFailure:
-    def test_api_failure_with_no_cache_reraises(self) -> None:
+    @pytest.mark.asyncio
+    async def test_api_failure_with_no_cache_reraises(self) -> None:
         repo = FakeRepository()
         client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
-        result = service.get_prices()
+        result = await service.get_prices()
         assert isinstance(result, Err)
         assert isinstance(result.error, APIError)
 
 
 class TestPriceHistory:
-    def test_history_reads_from_repository(self) -> None:
+    @pytest.mark.asyncio
+    async def test_history_reads_from_repository(self) -> None:
         repo = FakeRepository()
         client = FakeCryptoClient([a_price()])
         service = build_service(client, repo)
 
-        service.get_prices()  # records one batch
-        result = service.get_price_history("BTC", limit=10)
+        await service.get_prices()  # records one batch
+        result = await service.get_price_history("BTC", limit=10)
 
         assert isinstance(result, Ok)
         assert [p.symbol for p in result.value] == ["BTC"]

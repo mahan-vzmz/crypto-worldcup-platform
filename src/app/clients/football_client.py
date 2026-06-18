@@ -53,14 +53,14 @@ class FootballClient(BaseAPIClient):
             headers={"X-Auth-Token": api_key},
         )
 
-    def fetch_tournament(self, competition_code: str) -> Tournament:
+    async def fetch_tournament(self, competition_code: str) -> Tournament:
         """Fetch all matches for a specific competition and assemble
         a Tournament snapshot.
 
         Raises:
             APIError: on transport failure or a malformed payload.
         """
-        payload = self.get_json(f"/competitions/{competition_code}/matches")
+        payload = await self.get_json(f"/competitions/{competition_code}/matches")
         if not isinstance(payload, dict):
             raise APIError("football API returned an unexpected payload shape")
 

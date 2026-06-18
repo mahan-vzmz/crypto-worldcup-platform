@@ -14,7 +14,7 @@ from app.utils.result import Err, Ok
 
 
 class FakeCryptoService:
-    def get_prices(self) -> Ok[list[CryptoPrice]] | Err[APIError]:
+    async def get_prices(self) -> Ok[list[CryptoPrice]] | Err[APIError]:
         now = datetime.now(UTC)
         return Ok(
             [
@@ -48,7 +48,7 @@ class FakeCryptoService:
             ]
         )
 
-    def get_price_history(
+    async def get_price_history(
         self, symbol: str, *, limit: int = 10
     ) -> Ok[list[CryptoPrice]] | Err[APIError]:
         now = datetime.now(UTC)
@@ -68,7 +68,7 @@ class FakeCryptoService:
 
 
 class FakeFootballService:
-    def get_tournament(
+    async def get_tournament(
         self, competition_code: str = "WC"
     ) -> Ok[Tournament] | Err[APIError]:
         return Ok(Tournament("World Cup", "WC", (), "Group Stage"))

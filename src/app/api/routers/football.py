@@ -11,11 +11,11 @@ router = APIRouter(prefix="/football", tags=["Football"])
 
 
 @router.get("/tournament", response_model=Tournament)
-def get_tournament(
+async def get_tournament(
     football_service: Annotated[FootballService, Depends(get_football_service)],
 ) -> Tournament:
     """Retrieve the current state of the football tournament (World Cup)."""
-    result = football_service.get_tournament()
+    result = await football_service.get_tournament()
     match result:
         case Ok(tournament):
             return tournament

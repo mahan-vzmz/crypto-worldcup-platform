@@ -36,7 +36,7 @@ class BaseRepository(ABC):
     # ---- cryptocurrency ----
 
     @abstractmethod
-    def save_prices(self, prices: list[CryptoPrice]) -> None:
+    async def save_prices(self, prices: list[CryptoPrice]) -> None:
         """Persist a fresh batch of prices, stamping it with the current time.
 
         Each batch is appended to the price history (it does not overwrite
@@ -47,7 +47,7 @@ class BaseRepository(ABC):
         """
 
     @abstractmethod
-    def load_latest_prices(self) -> "Cached[list[CryptoPrice]] | None":
+    async def load_latest_prices(self) -> "Cached[list[CryptoPrice]] | None":
         """Return the most recently saved batch of prices, or ``None``.
 
         Absence (a cold cache) is signalled by ``None``, not an exception.
@@ -57,7 +57,7 @@ class BaseRepository(ABC):
         """
 
     @abstractmethod
-    def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
+    async def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
         """Return up to *limit* most-recent recorded prices for *symbol*.
 
         Ordered newest first. An empty list means no history yet.
@@ -69,7 +69,7 @@ class BaseRepository(ABC):
     # ---- football ----
 
     @abstractmethod
-    def save_tournament(self, tournament: Tournament) -> None:
+    async def save_tournament(self, tournament: Tournament) -> None:
         """Persist the tournament snapshot, replacing any previous one.
 
         The tournament is snapshot-only (no history in V2): each save
@@ -80,7 +80,7 @@ class BaseRepository(ABC):
         """
 
     @abstractmethod
-    def load_tournament(self, name: str) -> "Cached[Tournament] | None":
+    async def load_tournament(self, name: str) -> "Cached[Tournament] | None":
         """Return the most recently saved tournament by name, or ``None`` if absent.
 
         Raises:

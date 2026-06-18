@@ -10,9 +10,9 @@ boundary, per the layering rules. ``sqlite3`` is in the standard library, so
 V2 adds no new runtime dependency.
 """
 
-import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
+import aiosqlite
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -67,55 +67,57 @@ class SQLiteRepository(BaseRepository):
 
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
+
+    async def initialize(self) -> None:
         try:
-            with self._connect() as conn:
-                conn.executescript(_SCHEMA)
+            async with self._connect() as conn:
+                await conn.executescript(_SCHEMA)
                 # Migration: add asset_type if missing (from V4 to V5 upgrade)
                 try:
-                    conn.execute(
+                    await conn.execute(
                         "ALTER TABLE price_history ADD COLUMN asset_type "
                         "TEXT NOT NULL DEFAULT 'crypto'"
                     )
-                except sqlite3.OperationalError:
+                except aiosqlite.OperationalError:
                     pass  # Column already exists
 
                 # Migration: add code if missing (from V4 to V5 upgrade)
                 try:
-                    conn.execute(
+                    await conn.execute(
                         "ALTER TABLE tournament ADD COLUMN code "
                         "TEXT NOT NULL DEFAULT 'WC'"
                     )
-                except sqlite3.OperationalError:
+                except aiosqlite.OperationalError:
                     pass  # Column already exists
-        except sqlite3.Error as exc:
+        except aiosqlite.Error as exc:
             raise StorageError("failed to initialise the database") from exc
 
-    @contextmanager
-    def _connect(self) -> Generator[sqlite3.Connection, None, None]:
+    @asynccontextmanager
+    async def _connect(self) -> AsyncGenerator[aiosqlite.Connection, None]:
         """Yield a connection, committing on success and rolling back on error.
 
         A fresh connection per operation keeps the CLI simple and avoids
         cross-thread issues; SQLite opens are cheap.
         """
-        conn = sqlite3.connect(self._db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
+        conn = await aiosqlite.connect(self._db_path)
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("PRAGMA foreign_keys = ON")
         try:
             yield conn
-            conn.commit()
+            await conn.commit()
         except Exception:
-            conn.rollback()
+            await conn.rollback()
             raise
         finally:
-            conn.close()
+            await conn.close()
 
     # ---- cryptocurrency ----
 
-    def save_prices(self, prices: list[CryptoPrice]) -> None:
+    async def save_prices(self, prices: list[CryptoPrice]) -> None:
         fetched_at = datetime.now(UTC).isoformat()
         try:
-            with self._connect() as conn:
-                conn.executemany(
+            async with self._connect() as conn:
+                await conn.executemany(
                     "INSERT INTO price_history "
                     "(symbol, name, price_usd, price_toman, change_24h, "
                     "asset_type, last_updated, fetched_at) "
@@ -134,53 +136,54 @@ class SQLiteRepository(BaseRepository):
                         for p in prices
                     ],
                 )
-        except sqlite3.Error as exc:
+        except aiosqlite.Error as exc:
             raise StorageError("failed to save prices") from exc
         logger.debug("saved %d price rows", len(prices))
 
-    def load_latest_prices(self) -> Cached[list[CryptoPrice]] | None:
+    async def load_latest_prices(self) -> Cached[list[CryptoPrice]] | None:
         try:
-            with self._connect() as conn:
-                head = conn.execute(
-                    "SELECT MAX(fetched_at) AS latest FROM price_history"
-                ).fetchone()
+            async with self._connect() as conn:
+                async with conn.execute("SELECT MAX(fetched_at) AS latest FROM price_history") as cursor:
+                    head = await cursor.fetchone()
                 if head is None or head["latest"] is None:
                     return None
                 latest: str = head["latest"]
-                rows = conn.execute(
+                async with conn.execute(
                     "SELECT * FROM price_history WHERE fetched_at = ? ORDER BY id",
                     (latest,),
-                ).fetchall()
-        except sqlite3.Error as exc:
+                ) as cursor:
+                    rows = await cursor.fetchall()
+        except aiosqlite.Error as exc:
             raise StorageError("failed to load latest prices") from exc
         prices = [self._row_to_price(row) for row in rows]
         return Cached(data=prices, fetched_at=datetime.fromisoformat(latest))
 
-    def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
+    async def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
         if limit <= 0:
             return []
         try:
-            with self._connect() as conn:
-                rows = conn.execute(
+            async with self._connect() as conn:
+                async with conn.execute(
                     "SELECT * FROM price_history WHERE symbol = ? "
                     "ORDER BY fetched_at DESC, id DESC LIMIT ?",
                     (symbol, limit),
-                ).fetchall()
-        except sqlite3.Error as exc:
+                ) as cursor:
+                    rows = await cursor.fetchall()
+        except aiosqlite.Error as exc:
             raise StorageError(f"failed to load history for {symbol!r}") from exc
         return [self._row_to_price(row) for row in rows]
 
     # ---- football ----
 
-    def save_tournament(self, tournament: Tournament) -> None:
+    async def save_tournament(self, tournament: Tournament) -> None:
         fetched_at = datetime.now(UTC).isoformat()
         try:
-            with self._connect() as conn:
+            async with self._connect() as conn:
                 # Delete only this specific tournament
-                conn.execute(
+                await conn.execute(
                     "DELETE FROM tournament WHERE code = ?", (tournament.code,)
                 )
-                cursor = conn.execute(
+                cursor = await conn.execute(
                     "INSERT INTO tournament (name, code, current_stage, fetched_at) "
                     "VALUES (?, ?, ?, ?)",
                     (
@@ -191,7 +194,7 @@ class SQLiteRepository(BaseRepository):
                     ),
                 )
                 tournament_id = cursor.lastrowid
-                conn.executemany(
+                await conn.executemany(
                     "INSERT INTO match (tournament_id, home_name, home_code, "
                     "away_name, away_code, home_score, away_score, kickoff, "
                     "status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -210,25 +213,27 @@ class SQLiteRepository(BaseRepository):
                         for m in tournament.matches
                     ],
                 )
-        except sqlite3.Error as exc:
+        except aiosqlite.Error as exc:
             raise StorageError("failed to save tournament") from exc
         logger.debug("saved tournament with %d matches", len(tournament.matches))
 
-    def load_tournament(self, name: str) -> Cached[Tournament] | None:
+    async def load_tournament(self, name: str) -> Cached[Tournament] | None:
         try:
-            with self._connect() as conn:
-                trow = conn.execute(
+            async with self._connect() as conn:
+                async with conn.execute(
                     "SELECT * FROM tournament WHERE code = ? "
                     "ORDER BY fetched_at DESC, id DESC LIMIT 1",
                     (name,),
-                ).fetchone()
+                ) as cursor:
+                    trow = await cursor.fetchone()
                 if trow is None:
                     return None
-                mrows = conn.execute(
+                async with conn.execute(
                     "SELECT * FROM match WHERE tournament_id = ? ORDER BY id",
                     (trow["id"],),
-                ).fetchall()
-        except sqlite3.Error as exc:
+                ) as cursor:
+                    mrows = await cursor.fetchall()
+        except aiosqlite.Error as exc:
             raise StorageError("failed to load tournament") from exc
         tournament = Tournament(
             name=trow["name"],
@@ -244,7 +249,7 @@ class SQLiteRepository(BaseRepository):
     # ---- row mappers (anti-corruption from DB rows to domain models) ----
 
     @staticmethod
-    def _row_to_price(row: sqlite3.Row) -> CryptoPrice:
+    def _row_to_price(row: aiosqlite.Row) -> CryptoPrice:
         from app.models.crypto import AssetType
 
         return CryptoPrice(
@@ -258,7 +263,7 @@ class SQLiteRepository(BaseRepository):
         )
 
     @staticmethod
-    def _row_to_match(row: sqlite3.Row) -> Match:
+    def _row_to_match(row: aiosqlite.Row) -> Match:
         return Match(
             home_team=Team(name=row["home_name"], code=row["home_code"]),
             away_team=Team(name=row["away_name"], code=row["away_code"]),

@@ -55,8 +55,8 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     container = cast(Container, context.bot_data.get("container"))
     crypto_service = container.crypto_service
 
-    # Run synchronous fetch in a thread pool to avoid blocking the bot's event loop
-    res = await asyncio.to_thread(crypto_service.get_prices)
+    # Run asynchronous fetch
+    res = await crypto_service.get_prices()
 
     if not isinstance(res, Ok):
         await query.edit_message_text(
@@ -107,7 +107,7 @@ async def football_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if context.args:
         code = context.args[0].upper()
 
-    res = await asyncio.to_thread(football_service.get_tournament, code)
+    res = await football_service.get_tournament(code)
 
     if not isinstance(res, Ok):
         msg = f"⚠️ Failed to fetch football data for {code}."
@@ -132,7 +132,7 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     container = cast(Container, context.bot_data.get("container"))
     crypto_service = container.crypto_service
 
-    res = await asyncio.to_thread(crypto_service.get_prices)
+    res = await crypto_service.get_prices()
     if not isinstance(res, Ok):
         if update.message:
             await update.message.reply_text("⚠️ Failed to fetch market data.")

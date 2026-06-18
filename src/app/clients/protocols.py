@@ -21,7 +21,7 @@ from app.models.football import Tournament
 class CryptoClientProtocol(Protocol):
     """What a crypto service needs from a crypto client."""
 
-    def fetch_prices(self) -> list[CryptoPrice]:
+    async def fetch_prices(self) -> list[CryptoPrice]:
         """Fetch current prices for all available assets.
 
         Raises:
@@ -33,7 +33,7 @@ class CryptoClientProtocol(Protocol):
 class FootballClientProtocol(Protocol):
     """What a football service needs from a football client."""
 
-    def fetch_tournament(self, competition_code: str) -> Tournament:
+    async def fetch_tournament(self, competition_code: str) -> Tournament:
         """Fetch the current snapshot for a specific competition.
 
         Raises:
