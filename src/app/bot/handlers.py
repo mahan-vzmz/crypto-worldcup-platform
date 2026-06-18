@@ -1,6 +1,5 @@
 """Telegram bot command and query handlers."""
 
-import asyncio
 from typing import cast
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update

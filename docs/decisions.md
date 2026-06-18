@@ -256,3 +256,19 @@
   the service layer shrank to pure orchestration. The DIP seam still holds: the in-memory test fake
   and `SQLiteRepository` both implement the same ABC. `float`→`Decimal` (TD-02 / ADR-013) remains a
   follow-up within V2. (Corresponds to ADR-011 in `architecture.md`.)
+
+## ADR-016 — Full Asynchronous Migration (asyncio, httpx)
+- **Phase:** V7. **Status:** Implemented.
+- **Context:** FastAPI and the Telegram bot are inherently asynchronous. Using synchronous services (`requests`, standard `sqlite3`) blocked the event loop, severely degrading performance and responsiveness (TD-08).
+- **Alternatives considered:** (a) Wrap synchronous IO calls in `asyncio.to_thread` everywhere; (b) Rewrite the storage and client layers to be natively async using `httpx` and an async database driver.
+- **Decision:** (b). All services, clients, and repositories were refactored to use `async/await`. `requests` was swapped for `httpx`.
+- **Rationale:** Wrapping with threads is a temporary band-aid. A true production application needs non-blocking IO. The repository and client seams made it safe to migrate everything to async since dependencies were strictly controlled.
+- **Consequences:** A significant codebase refactor modifying signatures across all layers. Test suite migrated to `pytest-asyncio`.
+
+## ADR-017 — ORM (SQLAlchemy 2.0) and Dockerization
+- **Phase:** V7. **Status:** Implemented.
+- **Context:** Raw SQL (`aiosqlite`) lacks type safety and migration tracking. The platform also needed a reliable, reproducible way to deploy the API, Bot, and a production-grade database (PostgreSQL) together.
+- **Alternatives considered:** (a) Keep raw SQL and write deployment scripts; (b) Adopt an ORM and use Docker Compose for orchestration.
+- **Decision:** Adopt SQLAlchemy 2.0 ORM with asynchronous sessions. Support `SQLite` for local development and `asyncpg` (PostgreSQL) for production via Docker Compose.
+- **Rationale:** SQLAlchemy provides robust schema management and abstracts away dialect differences (SQLite vs Postgres). Docker ensures "it works on my machine" translates to production seamlessly.
+- **Consequences:** Replaced raw SQL queries with SQLAlchemy expressions. Added `Dockerfile`, `docker-compose.yml`, and updated `pyproject.toml` to include ORM dependencies.

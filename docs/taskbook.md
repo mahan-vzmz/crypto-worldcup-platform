@@ -213,7 +213,27 @@
 - [x] **Async Wrappers** — Wrapped synchronous service calls in `asyncio.to_thread` for non-blocking handlers.
 - [x] **Interactive Keyboards** — Implemented `/market` command with category switching via inline buttons.
 - [x] **Inline Queries** — Supported typing `@botname btc` in any chat to share market prices.
-- [x] **JobQueue** — Scheduled a daily morning brief (market summary + football schedule) at 08:00 UTC.
+> **V6 status:** All tasks completed! The bot successfully exposes all core services to Telegram.
+
+---
+
+## Milestone V7 — Production Hardening & Full Async
+**Epic:** Production Readiness · **Status:** ✅ Complete
+
+- [x] **Full Async Migration** — Replaced `requests` with `httpx` (TD-08). Refactored all services and clients to use `async/await`.
+- [x] **SQLAlchemy 2.0 ORM** — Replaced raw `aiosqlite` with `SQLAlchemy` ORM, adding `models.py` and updating the repository implementation.
+- [x] **PostgreSQL & Config Support** — Added `DATABASE_URL` parsing to support PostgreSQL via `asyncpg` with a fallback to `SQLite`.
+- [x] **Docker Containerization** — Wrote a multi-stage `Dockerfile` and a `docker-compose.yml` to spin up the API, Bot, and Database together.
+- [x] **CI/CD** — Added a GitHub Actions workflow `.github/workflows/ci.yml` for automated linting, formatting, and async testing (TD-05).
+
+> **V7 status:** All tasks completed! The platform is now fully asynchronous, containerized, and production-ready.
+
+---
+
+## Milestone V8 — Advanced Bot Features
+**Epic:** Enhanced Bot UX · **Status:** 🚧 Planned
+
+- [ ] **TBD** — Define advanced bot features based on user ideas.
 
 ---
 

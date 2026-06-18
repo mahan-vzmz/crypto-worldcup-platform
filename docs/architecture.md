@@ -217,8 +217,8 @@ blocks Milestone M1.
 - **Quality:** unit tests for models, storage, and services with external boundaries mocked; committed README, architecture doc, and changelog.
 
 ### Out of scope
-Any database (SQLite/PostgreSQL) — V2/V6. Any web/HTTP API (FastAPI) — V4. Web dashboard — V5.
-Auth, async, Docker, CI/CD — V6. Coins beyond BTC/ETH/SOL. Multiple tournaments or live in-match
+Any database (SQLite/PostgreSQL) — V2/V7. Any web/HTTP API (FastAPI) — V4. Web dashboard — V5.
+Telegram Bot — V6. Auth, async, Docker, CI/CD — V7. Coins beyond BTC/ETH/SOL. Multiple tournaments or live in-match
 updates. `Decimal` money arithmetic. Pre-commit hooks. Concurrent/multi-user access. Streaming,
 notifications, alerts. Any feature not explicitly listed as in scope. **Scope is frozen.**
 
@@ -268,10 +268,10 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 | TD-02 *(Resolved)* | Money as `float` | Display-only in V1; `Decimal` ceremony unjustified now | Rounding error if values ever drive arithmetic | Low | Switch to `Decimal` alongside the DB migration | Done (V2) ✅ |
 | TD-03 *(Resolved)* | Manual dependency wiring in `main.py` | Few components; explicit wiring reads more clearly than a container for a learner | Wiring grows verbose as components multiply | Low | Introduce a small composition/DI helper if it becomes unwieldy | Done (V3) ✅ |
 | TD-04 *(Resolved)* | Toman price may use a configurable fallback rate | Keeps V1 shippable without a second fragile integration | Displayed Toman value may be approximate | Medium | Adopt a proper rate source (Wallex) | Done (V2) ✅ |
-| TD-05 | No CI, pre-commit hooks, or automated deployment | Automation is explicitly a V6 concern; adding now is scope creep | Quality gates run manually; human error possible | Low | Add CI pipeline + pre-commit | V6 |
+| TD-05 | No CI, pre-commit hooks, or automated deployment | Automation is explicitly a V7 concern; adding now is scope creep | Quality gates run manually; human error possible | Low | Add CI pipeline + pre-commit | Done (V7) ✅ |
 | TD-06 | Single hardcoded football competition | Multi-tournament is out of V1 scope; free tier constrains the choice anyway | Users cannot choose the tournament | Low | Multi-tournament support with a richer tier/source | Post-V1 |
 | TD-07 *(Resolved)* | TTL cache, not sophisticated invalidation | Meets V1 freshness needs simply | Coarse freshness control | Low | Extract a cache strategy object if warranted | Done (V3) ✅ |
-| TD-08 | Synchronous HTTP (`requests`) | Simpler to learn and sufficient for a CLI | Blocks during slow calls; unsuitable for high concurrency | Low | Move to async (`httpx`) at the `base_client` seam | V6 |
+| TD-08 *(Resolved)* | Synchronous HTTP (`requests`) | Simpler to learn and sufficient for a CLI | Blocks during slow calls; unsuitable for high concurrency | Low | Move to async (`httpx`) at the `base_client` seam | Done (V7) ✅ |
 | TD-09 *(Resolved)* | Services depend on concrete clients, not an abstraction | Clients were built before the need for substitution was felt; YAGNI at the time | Test fakes require a `# type: ignore`; the DIP seam is incomplete on the client side | Medium | Extract a `CryptoClientProtocol` / `FootballClientProtocol` and type services against it |  Done (V2) ✅ |
 | TD-10 *(Resolved)* | Ad-hoc unavailable-client stand-in in `main.py` | Graceful football degradation needed a no-key path; a quick stand-in shipped V1 | Structural (not nominal) compatibility; mirrors the TD-09 smell in the composition root | Low | Fold into the TD-09 protocol so the stand-in implements a real interface |  Done (V2) ✅ |
 
@@ -298,7 +298,8 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 | V3 | Cleaner internals | Cache strategy object, richer error/result types | (design patterns) |
 | V4 | Expose services over HTTP | New presentation layer (routes) reusing existing services | FastAPI, Pydantic, Uvicorn |
 | V5 | Browser UI | Frontend consuming the V4 API | (web frontend) |
-| V6 | Production hardening | DB swap, auth, async, containerization, CI/CD | PostgreSQL, SQLAlchemy, async I/O, Docker |
+| V6 | Telegram Bot Integration | New presentation channel for existing services | python-telegram-bot |
+| V7 | Production hardening | DB swap, async, containerization, CI/CD | PostgreSQL, SQLAlchemy, async I/O, Docker |
 
 The through-line: because V1 separates presentation, service, and data behind interfaces, each
 future version replaces or adds **one** layer without rewriting the others.

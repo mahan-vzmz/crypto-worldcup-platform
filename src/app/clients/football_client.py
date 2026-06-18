@@ -38,7 +38,7 @@ class FootballClient(BaseAPIClient):
         self,
         api_key: str,
         *,
-        timeout: tuple[float, float] = DEFAULT_TIMEOUT,
+        timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = 3,
     ) -> None:
         # Point-of-use key validation (deferred from Settings by design).

@@ -1,6 +1,5 @@
 """Scheduled jobs for the Telegram bot."""
 
-import asyncio
 import logging
 from typing import cast
 

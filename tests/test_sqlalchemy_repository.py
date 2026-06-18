@@ -1,25 +1,26 @@
-"""Tests for the SQLite implementation of BaseRepository.
+"""Tests for the SQLAlchemy implementation of BaseRepository.
 
 Focuses on the round-trip through the database: do domain models serialize
 into tables and deserialize back exactly as they were? We use in-memory
 or temporary databases so tests remain fast and isolated.
 """
 
-import pytest
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from app.models.crypto import AssetType, CryptoPrice
 from app.models.football import Match, MatchStatus, Team, Tournament
-from app.storage.sqlite_repository import SQLiteRepository
+from app.storage.sqlalchemy_repository import SQLAlchemyRepository
 
 
-async def make_repo(tmp_path: Path) -> SQLiteRepository:
+async def make_repo(tmp_path: Path) -> SQLAlchemyRepository:
     """Provide a fresh repository pointing to a temporary file."""
-    db = tmp_path / "test.db"
-    repo = SQLiteRepository(db_path=db)
+    db_url = f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}"
+    repo = SQLAlchemyRepository(database_url=db_url)
     await repo.initialize()
     return repo
 
@@ -177,14 +178,16 @@ class TestTournamentRoundTrip:
 
 class TestPersistence:
     @pytest.mark.asyncio
-    async def test_data_survives_a_new_repository_instance(self, tmp_path: Path) -> None:
-        db = tmp_path / "test.db"
+    async def test_data_survives_a_new_repository_instance(
+        self, tmp_path: Path
+    ) -> None:
+        db_url = f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}"
 
-        repo1 = SQLiteRepository(db_path=db)
+        repo1 = SQLAlchemyRepository(database_url=db_url)
         await repo1.initialize()
         await repo1.save_prices([a_price("BTC")])
-        
-        repo2 = SQLiteRepository(db_path=db)
+
+        repo2 = SQLAlchemyRepository(database_url=db_url)
         await repo2.initialize()
         cached = await repo2.load_latest_prices()
 

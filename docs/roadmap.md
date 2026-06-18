@@ -17,6 +17,8 @@
 > **V3.0.0 is complete.** The OOP and service refactoring is fully implemented, introducing the `Result` type, `CacheStrategyProtocol`, and a DI Container.
 > **V4.0.0 is complete.** The FastAPI REST API presentation layer was added, proving the architecture's decoupling by reusing existing services untouched.
 > **V5.0.0 is complete.** The Web Dashboard with HTMX and the Dynamic Assets domain refactoring have shipped.
+> **V6.0.0 is complete.** The Telegram Bot integration has shipped, providing a new UI channel for the same core services.
+> **V7.0.0 is complete.** Production hardening landed with SQLAlchemy ORM, PostgreSQL support, Docker containerization, and fully asynchronous architecture.
 ---
 
 ## Project Vision
@@ -175,13 +177,25 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Technologies introduced:** HTML5, CSS3 (Glassmorphism), Jinja2, HTMX.
 - **Learning objectives:** client-server architecture, hypermedia-driven applications (HTMX), frontend-backend integration.
 
-### Version 6 - Production Hardening *(Planned)*
-- **Features:** authentication, async processing, containerized deployment.
-- **Architectural changes:** PostgreSQL + SQLAlchemy via the repository seam; async I/O at the
-  base-client seam; auth layer; CI/CD; automated testing in pipeline.
-- **Technologies introduced:** PostgreSQL, SQLAlchemy, async/await (`httpx`), Docker, CI/CD.
-- **Learning objectives:** ORMs, asynchronous programming, containerization, authentication,
-  deployment, continuous integration.
+### Version 6 - Telegram Bot Integration ✅ *(shipped — V6.0.0)*
+- **Status:** Complete. We added `python-telegram-bot` and a new entry point `crypto-wc-bot`.
+- **Features:** A Telegram bot with interactive inline keyboards, inline queries, and a daily scheduled brief.
+- **Architectural changes:** Added a new presentation layer that safely consumes the core services without blocking the event loop.
+- **Technologies introduced:** `python-telegram-bot`, Telegram Bot API.
+- **Learning objectives:** Chatbot integration, background job queues, async wrappers.
+
+### Version 7 - Production Hardening ✅ *(shipped — V7.0.0)*
+- **Status:** Complete. We migrated the entire stack to `asyncio` (`httpx`, `asyncpg`), swapped the DB to `SQLAlchemy 2.0`, and containerized the app.
+- **Features:** Asynchronous execution, robust ORM, multi-container Docker deployments, PostgreSQL support, GitHub Actions CI.
+- **Architectural changes:** PostgreSQL + SQLAlchemy via the repository seam; async I/O at the base-client seam; CI/CD; automated testing in pipeline.
+- **Technologies introduced:** PostgreSQL, SQLAlchemy, async/await (`httpx`), Docker, Docker Compose, GitHub Actions.
+- **Learning objectives:** ORMs, asynchronous programming, containerization, deployment, continuous integration.
+
+### Version 8 - Advanced Bot Features *(Planned)*
+- **Features:** Sophisticated interactive Telegram bot capabilities, advanced user preferences, alerts, etc.
+- **Architectural changes:** TBD.
+- **Technologies introduced:** TBD.
+- **Learning objectives:** Advanced chatbot UX, stateful conversational flows.
 
 ---
 

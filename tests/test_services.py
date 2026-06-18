@@ -6,10 +6,11 @@ The BaseRepository ABC is what makes the fake repository a drop-in;
 FakeCryptoClient structurally satisfies CryptoClientProtocol (no inheritance).
 """
 
-import pytest
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
+
+import pytest
 
 from app.config.settings import Settings
 from app.models.crypto import AssetType, CryptoPrice

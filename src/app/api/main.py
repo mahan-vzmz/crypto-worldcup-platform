@@ -1,11 +1,11 @@
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-
-from contextlib import asynccontextmanager
 
 from app.api.dependencies import get_container
 from app.api.routers import crypto, dashboard, football
@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifecycle events for the FastAPI application."""
     container = get_container()
     await container.repository.initialize()
     yield
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""

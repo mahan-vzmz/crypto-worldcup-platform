@@ -46,7 +46,7 @@ class FootballClientProtocol(Protocol):
 class FiatClientProtocol(Protocol):
     """What a crypto service needs to fetch fiat forex rates."""
 
-    def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
+    async def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
         """Fetch the exchange rates relative to *base_currency*.
 
         Raises:

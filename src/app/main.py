@@ -54,6 +54,7 @@ async def async_main() -> None:
         console=console,
     ).run()
 
+
 def main() -> None:
     asyncio.run(async_main())
 

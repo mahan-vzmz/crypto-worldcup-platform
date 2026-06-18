@@ -13,7 +13,7 @@ from app.models.football import Tournament
 from app.services.cache_strategy import TTLCacheStrategy
 from app.services.crypto_service import CryptoService
 from app.services.football_service import FootballService
-from app.storage.sqlite_repository import SQLiteRepository
+from app.storage.sqlalchemy_repository import SQLAlchemyRepository
 from app.utils.exceptions import ConfigError
 from app.utils.logger import get_logger
 
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class _UnavailableFootballClient:
     """Stand-in used when no football key is configured."""
 
-    def fetch_tournament(self, competition_code: str) -> Tournament:
+    async def fetch_tournament(self, competition_code: str) -> Tournament:
         raise ConfigError("FOOTBALL_API_KEY is not set; football data is unavailable")
 
 
@@ -34,7 +34,7 @@ class Container:
         self.settings = settings
 
         # Core Infrastructure
-        self.repository = SQLiteRepository(db_path=self.settings.db_path)
+        self.repository = SQLAlchemyRepository(database_url=self.settings.database_url)
         self.cache_strategy = TTLCacheStrategy(
             ttl_seconds=self.settings.cache_ttl_seconds
         )

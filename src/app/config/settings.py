@@ -71,6 +71,14 @@ class Settings:
         """Path to the SQLite database file (V2 durable storage)."""
         return self.data_dir / "app.db"
 
+    @property
+    def database_url(self) -> str:
+        """Database connection string (V7 SQLAlchemy)."""
+        db_url = os.getenv("DATABASE_URL")
+        if db_url:
+            return db_url
+        return f"sqlite+aiosqlite:///{self.db_path.as_posix()}"
+
     @classmethod
     def from_env(cls) -> "Settings":
         """Build a ``Settings`` instance from the environment.

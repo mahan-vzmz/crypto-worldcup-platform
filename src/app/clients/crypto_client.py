@@ -28,7 +28,7 @@ class CryptoClient(BaseAPIClient):
         self,
         *,
         api_key: str = "",
-        timeout: tuple[float, float] = DEFAULT_TIMEOUT,
+        timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = 3,
     ) -> None:
         headers = {"X-API-Key": api_key} if api_key else None

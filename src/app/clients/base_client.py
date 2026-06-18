@@ -42,9 +42,7 @@ class BaseAPIClient:
         self._timeout = timeout
         transport = httpx.AsyncHTTPTransport(retries=max_retries)
         self._client = httpx.AsyncClient(
-            transport=transport,
-            timeout=timeout,
-            headers=headers
+            transport=transport, timeout=timeout, headers=headers
         )
 
     async def get_json(self, path: str, params: dict[str, str] | None = None) -> Any:

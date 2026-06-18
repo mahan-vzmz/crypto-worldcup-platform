@@ -22,7 +22,7 @@ class FiatClient(BaseAPIClient):
     def __init__(
         self,
         *,
-        timeout: tuple[float, float] = DEFAULT_TIMEOUT,
+        timeout: float = DEFAULT_TIMEOUT,
         max_retries: int = 3,
     ) -> None:
         super().__init__(
