@@ -1,3 +1,5 @@
+"""Tests for the FastAPI routes."""
+
 from collections.abc import Generator
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -5,10 +7,9 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_crypto_service, get_football_service
+from app.api.dependencies import get_crypto_service
 from app.api.main import app
 from app.models.crypto import AssetType, CryptoPrice
-from app.models.football import Tournament
 from app.utils.exceptions import APIError
 from app.utils.result import Err, Ok
 
@@ -67,17 +68,9 @@ class FakeCryptoService:
         )
 
 
-class FakeFootballService:
-    async def get_tournament(
-        self, competition_code: str = "WC"
-    ) -> Ok[Tournament] | Err[APIError]:
-        return Ok(Tournament("World Cup", "WC", (), "Group Stage"))
-
-
 @pytest.fixture
 def client() -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_crypto_service] = lambda: FakeCryptoService()
-    app.dependency_overrides[get_football_service] = lambda: FakeFootballService()
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -86,7 +79,7 @@ def test_get_all_prices(client: TestClient) -> None:
     response = client.get("/crypto/prices")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 3  # All coins
+    assert len(data) == 3
     assert data[0]["symbol"] == "BTC"
 
 
@@ -109,10 +102,3 @@ def test_invalid_coin(client: TestClient) -> None:
     response = client.get("/crypto/prices/INVALID")
     assert response.status_code == 404
     assert "not supported" in response.json()["detail"]
-
-
-def test_get_tournament(client: TestClient) -> None:
-    response = client.get("/football/tournament")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "World Cup"

@@ -104,12 +104,9 @@ class CryptoClient(BaseAPIClient):
         except (TypeError, ValueError, InvalidOperation):
             return None
 
-        if price_toman <= 0:
-            return None
-
         return CryptoPrice(
             symbol="USDT",
-            name="US Dollar (Tether)",
+            name="تتر",
             price_usd=Decimal("1.0"),
             price_toman=price_toman,
             change_24h=change_24h,
@@ -139,7 +136,9 @@ class CryptoClient(BaseAPIClient):
         if not isinstance(usd_stats, dict) or not isinstance(tmn_stats, dict):
             return None
 
-        name = usd_data.get("enBaseAsset", symbol)
+        name_fa = usd_data.get("faBaseAsset")
+        name_en = usd_data.get("enBaseAsset", symbol)
+        name = name_fa if name_fa else name_en
 
         try:
             price_usd = Decimal(str(usd_stats.get("lastPrice", "0")))

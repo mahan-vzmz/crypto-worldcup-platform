@@ -12,10 +12,8 @@ from rich.prompt import IntPrompt, Prompt
 from app.presentation.renderers import (
     render_price_history,
     render_prices,
-    render_tournament,
 )
 from app.services.crypto_service import CryptoService
-from app.services.football_service import FootballService
 from app.utils.exceptions import AppError, ConfigError
 from app.utils.logger import get_logger
 from app.utils.result import Ok
@@ -28,7 +26,6 @@ _MENU = """\
   [cyan]1[/cyan]  All market prices
   [cyan]2[/cyan]  Single asset price
   [cyan]3[/cyan]  Asset price history
-  [cyan]4[/cyan]  Football matches
   [cyan]q[/cyan]  Quit"""
 
 
@@ -38,11 +35,9 @@ class Menu:
     def __init__(
         self,
         crypto_service: CryptoService,
-        football_service: FootballService,
         console: Console | None = None,
     ) -> None:
         self._crypto = crypto_service
-        self._football = football_service
         self._console = console or Console()
 
     async def run(self) -> None:
@@ -50,7 +45,7 @@ class Menu:
         self._console.print(Panel(_MENU, border_style="magenta", expand=False))
         while True:
             choice = Prompt.ask(
-                "Select", choices=["1", "2", "3", "4", "q"], default="q"
+                "Select", choices=["1", "2", "3", "q"], default="q"
             )
             if choice == "q":
                 self._console.print("[dim]Goodbye.[/dim]")
@@ -66,8 +61,6 @@ class Menu:
                 await self._show_single_price()
             elif choice == "3":
                 await self._show_price_history()
-            elif choice == "4":
-                await self._show_football()
         except ConfigError as exc:
             self._console.print(f"[yellow]Unavailable:[/yellow] {exc}")
         except AppError as exc:
@@ -99,14 +92,6 @@ class Menu:
         result = await self._crypto.get_price_history(symbol, limit=limit)
         if isinstance(result, Ok):
             self._console.print(render_price_history(symbol, result.value))
-        else:
-            self._handle_error(result.error)
-
-    async def _show_football(self) -> None:
-        competition = Prompt.ask("Competition Code", default="WC")
-        result = await self._football.get_tournament(competition)
-        if isinstance(result, Ok):
-            self._console.print(render_tournament(result.value))
         else:
             self._handle_error(result.error)
 

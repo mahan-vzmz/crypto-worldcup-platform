@@ -1,40 +1,59 @@
 {% if crypto_prices %}
-<table>
+<table id="market-table">
     <thead>
         <tr>
-            <th>Asset</th>
-            <th>Type</th>
-            <th>Price (USD)</th>
-            <th>Price (Toman)</th>
-            <th>24h %</th>
+            <th>دارایی</th>
+            <th>آخرین قیمت</th>
+            <th>قیمت تومانی</th>
+            <th>تغییرات (۲۴س)</th>
+            <th class="text-center">عملیات</th>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="market-tbody">
         {% for price in crypto_prices %}
-        <tr onclick="loadChart('{{ price.symbol }}', '{{ price.type.value }}')" style="cursor: pointer;" title="Click to view chart">
+        <tr class="market-row" data-type="{{ price.type.value }}" data-name="{{ price.name | lower }}" data-symbol="{{ price.symbol | lower }}">
             <td>
-                <span class="asset-name">{{ price.name }}</span>
-                <span class="asset-symbol">{{ price.symbol }}</span>
+                <div class="asset-cell">
+                    <img src="{% if price.image_url %}{{ price.image_url }}{% else %}https://ui-avatars.com/api/?name={{ price.symbol }}&background=random&color=fff&rounded=true&bold=true{% endif %}" alt="{{ price.name }}" class="asset-logo" loading="lazy">
+                    <div class="asset-info">
+                        <span class="asset-name">{{ price.name }}</span>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <span class="asset-symbol">{{ price.symbol }}</span>
+                            {% if price.type.value == 'crypto' %}
+                                <span class="badge badge-crypto">رمزارز</span>
+                            {% elif price.type.value == 'fiat' %}
+                                <span class="badge badge-fiat">ارز فیات</span>
+                            {% elif price.type.value == 'metal' %}
+                                <span class="badge badge-metal">فلزات</span>
+                            {% else %}
+                                <span class="badge badge-bourse">بورس</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </td>
-            <td>
-                {% if price.type.value == 'crypto' %}
-                    <span class="badge badge-crypto">Crypto</span>
-                {% elif price.type.value == 'fiat' %}
-                    <span class="badge badge-fiat">Fiat</span>
+            <td class="price-usd" dir="ltr" style="text-align: right;">${{ "{:,.4f}".format(price.price_usd) if price.price_usd > 0 and price.price_usd < 1 else "{:,.2f}".format(price.price_usd) }}</td>
+            <td class="price-toman">
+                {% if price.price_toman > 0 %}
+                    {{ "{:,.0f}".format(price.price_toman) }} تومان
                 {% else %}
-                    <span class="badge badge-metal">Metal</span>
+                    -
                 {% endif %}
             </td>
-            <td class="price-usd">${{ "{:,.2f}".format(price.price_usd) }}</td>
-            <td class="price-toman">{{ "{:,.0f}".format(price.price_toman) }}</td>
             <td>
                 {% if price.change_24h > 0 %}
                     <span class="change-positive"><i class="fa-solid fa-arrow-trend-up"></i> {{ "{:.2f}".format(price.change_24h) }}%</span>
                 {% elif price.change_24h < 0 %}
                     <span class="change-negative"><i class="fa-solid fa-arrow-trend-down"></i> {{ "{:.2f}".format(price.change_24h|abs) }}%</span>
                 {% else %}
-                    <span class="text-muted">-</span>
+                    <span class="text-muted" style="display: block; text-align: right; direction: ltr;">0.00%</span>
                 {% endif %}
+            </td>
+            <td class="text-center">
+                <div class="trade-actions" style="justify-content: center;">
+                    <button class="btn-trade buy" onclick="alert('خرید {{ price.name }}')">خرید</button>
+                    <button class="btn-trade" onclick="alert('فروش {{ price.name }}')">فروش</button>
+                </div>
             </td>
         </tr>
         {% endfor %}
@@ -42,7 +61,8 @@
 </table>
 {% else %}
 <div class="empty-state">
-    <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
-    <p>Market data is currently unavailable.</p>
+    <i class="fa-solid fa-folder-open" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+    <h3>داده‌ای یافت نشد</h3>
+    <p>در حال حاضر اطلاعات بازار در دسترس نیست. لطفا دقایقی دیگر تلاش کنید.</p>
 </div>
 {% endif %}

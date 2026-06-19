@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## [8.0.0] — 2026-06-19 — MarketPulse Transformation
+
+### Changed — Phase 1: Codebase Cleanup
+- **Fixed** broken import syntax in `bot/main.py` (missing closing parenthesis after `InlineQueryHandler`)
+- **Added** `image_url: str = ""` field to `CryptoPrice` model to match template usage
+- **Renamed** FastAPI app title from "Crypto & World Cup API" to "MarketPulse API"
+- **Cleaned** stale docstrings referencing football/worldcup from `settings.py`
+- **Removed** duplicate `_DEFAULT_CACHE_TTL_SECONDS` assignment in `settings.py`
+- **Updated** `README.md` to reflect MarketPulse brand and current feature set
+
+### Removed — Phase 2: Iran Bourse Dropped
+- **Removed** `IranBourseClient` and `iran_bourse_client.py` entirely — TSETMC API was unreliable and returned empty data in testing
+- **Removed** `IranBourseClientProtocol` from `protocols.py`
+- **Removed** `IRAN_BOURSE` from `AssetType` enum
+- **Removed** Iran bourse tab from web dashboard
+- **Cleaned** all references from `CryptoService`, `Container`, templates, and tests
+
+### Fixed — Tests
+- Removed all football/worldcup references from test suite (`test_models.py`, `test_services.py`, `test_config.py`, `test_routes.py`, `test_sqlalchemy_repository.py`)
+- Added `FakeBourseClient` to service tests to match updated `CryptoService` signature
+- Fixed timestamp comparison bug in `test_latest_reflects_most_recent_batch`
+- Added two new tests for the `image_url` field on `CryptoPrice`
+- **Result: 35 tests, 35 passed**
+
+---
+
 ## [1.0.0] — 2026-06-14
 
 First stable release. A Python 3.12 terminal application delivering live

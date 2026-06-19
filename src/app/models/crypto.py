@@ -16,6 +16,7 @@ class AssetType(Enum):
     CRYPTO = "crypto"
     FIAT = "fiat"
     METAL = "metal"
+    BOURSE = "bourse"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +35,7 @@ class CryptoPrice:
     change_24h: Decimal
     type: AssetType
     last_updated: datetime
+    image_url: str = ""
 
     def __post_init__(self) -> None:
         if not self.symbol:

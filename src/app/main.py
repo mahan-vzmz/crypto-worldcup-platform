@@ -50,7 +50,6 @@ async def async_main() -> None:
     # 6. Launch the presentation layer.
     await Menu(
         crypto_service=container.crypto_service,
-        football_service=container.football_service,
         console=console,
     ).run()
 

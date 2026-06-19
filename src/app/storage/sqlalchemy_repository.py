@@ -10,9 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import selectinload
 
 from app.models.crypto import AssetType, CryptoPrice
-from app.models.football import Match, MatchStatus, Team, Tournament
 from app.storage.base_repository import BaseRepository, Cached
-from app.storage.models import Base, MatchModel, PriceHistoryModel, TournamentModel
+from app.storage.models import Base, PriceHistoryModel
 from app.utils.exceptions import StorageError
 from app.utils.logger import get_logger
 
@@ -109,81 +108,6 @@ class SQLAlchemyRepository(BaseRepository):
             raise StorageError(f"failed to load history for {symbol!r}") from exc
         return [self._model_to_price(m) for m in models]
 
-    async def save_tournament(self, tournament: Tournament) -> None:
-        fetched_at = datetime.now(UTC)
-        try:
-            async with self._session() as session:
-                old_ids_result = await session.execute(
-                    select(TournamentModel.id).where(
-                        TournamentModel.code == tournament.code
-                    )
-                )
-                old_ids = old_ids_result.scalars().all()
-                if old_ids:
-                    await session.execute(
-                        delete(MatchModel).where(MatchModel.tournament_id.in_(old_ids))
-                    )
-                    await session.execute(
-                        delete(TournamentModel).where(TournamentModel.id.in_(old_ids))
-                    )
-
-                t_model = TournamentModel(
-                    name=tournament.name,
-                    code=tournament.code,
-                    current_stage=tournament.current_stage,
-                    fetched_at=fetched_at,
-                )
-                m_models = [
-                    MatchModel(
-                        home_name=m.home_team.name,
-                        home_code=m.home_team.code,
-                        away_name=m.away_team.name,
-                        away_code=m.away_team.code,
-                        home_score=m.home_score,
-                        away_score=m.away_score,
-                        kickoff=m.kickoff,
-                        status=m.status.value,
-                        tournament=t_model,
-                    )
-                    for m in tournament.matches
-                ]
-                session.add(t_model)
-                session.add_all(m_models)
-        except Exception as exc:
-            raise StorageError("failed to save tournament") from exc
-        logger.debug("saved tournament with %d matches", len(tournament.matches))
-
-    async def load_tournament(self, name: str) -> Cached[Tournament] | None:
-        try:
-            async with self._session() as session:
-                result = await session.execute(
-                    select(TournamentModel)
-                    .options(selectinload(TournamentModel.matches))
-                    .where(TournamentModel.code == name)
-                    .order_by(
-                        desc(TournamentModel.fetched_at), desc(TournamentModel.id)
-                    )
-                    .limit(1)
-                )
-                t_model = result.scalar_one_or_none()
-                if t_model is None:
-                    return None
-        except Exception as exc:
-            raise StorageError("failed to load tournament") from exc
-
-        tournament = Tournament(
-            name=t_model.name,
-            code=t_model.code,
-            matches=tuple(self._model_to_match(m) for m in t_model.matches),
-            current_stage=t_model.current_stage,
-        )
-        dt = (
-            t_model.fetched_at
-            if t_model.fetched_at.tzinfo
-            else t_model.fetched_at.replace(tzinfo=UTC)
-        )
-        return Cached(data=tournament, fetched_at=dt)
-
     @staticmethod
     def _model_to_price(model: PriceHistoryModel) -> CryptoPrice:
         lu = (
@@ -201,16 +125,106 @@ class SQLAlchemyRepository(BaseRepository):
             last_updated=lu,
         )
 
-    @staticmethod
-    def _model_to_match(model: MatchModel) -> Match:
-        ko = (
-            model.kickoff if model.kickoff.tzinfo else model.kickoff.replace(tzinfo=UTC)
-        )
-        return Match(
-            home_team=Team(name=model.home_name, code=model.home_code),
-            away_team=Team(name=model.away_name, code=model.away_code),
-            home_score=model.home_score,
-            away_score=model.away_score,
-            kickoff=ko,
-            status=MatchStatus(model.status),
-        )
+    # ---- user & watchlist ----
+
+    async def get_or_create_user(
+        self, telegram_id: int, username: str | None, first_name: str | None
+    ) -> None:
+        try:
+            from app.storage.models import UserModel
+
+            async with self._session() as session:
+                result = await session.execute(
+                    select(UserModel).where(UserModel.telegram_id == telegram_id)
+                )
+                user = result.scalar_one_or_none()
+                if not user:
+                    user = UserModel(
+                        telegram_id=telegram_id,
+                        username=username,
+                        first_name=first_name,
+                        joined_at=datetime.now(UTC),
+                    )
+                    session.add(user)
+                else:
+                    # Update info if changed
+                    user.username = username
+                    user.first_name = first_name
+        except Exception as exc:
+            raise StorageError("failed to get or create user") from exc
+
+    async def get_watchlist(self, telegram_id: int) -> list[str]:
+        try:
+            from app.storage.models import UserModel, WatchlistModel
+
+            async with self._session() as session:
+                result = await session.execute(
+                    select(WatchlistModel.symbol)
+                    .join(UserModel)
+                    .where(UserModel.telegram_id == telegram_id)
+                    .order_by(WatchlistModel.added_at)
+                )
+                return list(result.scalars().all())
+        except Exception as exc:
+            raise StorageError("failed to get watchlist") from exc
+
+    async def add_to_watchlist(self, telegram_id: int, symbol: str) -> bool:
+        symbol = symbol.upper()
+        try:
+            from app.storage.models import UserModel, WatchlistModel
+
+            async with self._session() as session:
+                result = await session.execute(
+                    select(UserModel).where(UserModel.telegram_id == telegram_id)
+                )
+                user = result.scalar_one_or_none()
+                if not user:
+                    user = UserModel(
+                        telegram_id=telegram_id,
+                        joined_at=datetime.now(UTC),
+                    )
+                    session.add(user)
+                    await session.flush()
+
+                # Check if exists
+                existing = await session.execute(
+                    select(WatchlistModel).where(
+                        WatchlistModel.user_id == user.id,
+                        WatchlistModel.symbol == symbol,
+                    )
+                )
+                if existing.scalar_one_or_none():
+                    return False  # Already in watchlist
+
+                w = WatchlistModel(
+                    user_id=user.id,
+                    symbol=symbol,
+                    added_at=datetime.now(UTC),
+                )
+                session.add(w)
+                return True
+        except Exception as exc:
+            raise StorageError("failed to add to watchlist") from exc
+
+    async def remove_from_watchlist(self, telegram_id: int, symbol: str) -> bool:
+        symbol = symbol.upper()
+        try:
+            from app.storage.models import UserModel, WatchlistModel
+
+            async with self._session() as session:
+                result = await session.execute(
+                    select(UserModel.id).where(UserModel.telegram_id == telegram_id)
+                )
+                user_id = result.scalar_one_or_none()
+                if not user_id:
+                    return False
+
+                result = await session.execute(
+                    delete(WatchlistModel).where(
+                        WatchlistModel.user_id == user_id,
+                        WatchlistModel.symbol == symbol,
+                    )
+                )
+                return result.rowcount > 0  # type: ignore[attr-defined,no-any-return]
+        except Exception as exc:
+            raise StorageError("failed to remove from watchlist") from exc

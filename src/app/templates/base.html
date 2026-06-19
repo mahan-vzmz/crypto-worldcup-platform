@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Crypto & Football Dashboard{% endblock %}</title>
+    <title>{% block title %}مارکت پالس | MarketPulse{% endblock %}</title>
+    <meta name="description" content="خرید، فروش و مشاهده لحظه‌ای قیمت رمزارزها، ارزهای فیات، فلزات گرانبها و بورس در مارکت پالس.">
     
-    <!-- Modern Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,23 +20,34 @@
     <script src="https://unpkg.com/htmx.org@1.9.10" integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC" crossorigin="anonymous"></script>
 </head>
 <body>
-    <div class="container fade-in">
-        <header class="header">
-            <div class="brand">
+    <header class="site-header">
+        <div class="container header-inner">
+            <a href="/" class="brand">
                 <div class="brand-icon">
-                    <i class="fa-solid fa-bolt"></i>
+                    <i class="fa-solid fa-chart-line"></i>
                 </div>
-                <h1>Crypto & Football Dashboard</h1>
-            </div>
-            <div class="header-actions">
-                <button class="btn-refresh" onclick="htmx.trigger('body', 'refresh-all')">
-                    <i class="fa-solid fa-rotate-right"></i> Refresh
-                </button>
-            </div>
-        </header>
+                <h1>مارکت پالس</h1>
+            </a>
+            
+            <nav class="header-nav">
+                <a href="/" class="nav-link">خانه</a>
+                <a href="#markets" class="nav-link">بازارها</a>
+                <a href="#features" class="nav-link">امکانات</a>
+            </nav>
 
+            <div class="header-actions">
+                <button id="theme-toggle" class="theme-toggle" aria-label="تغییر تم">
+                    <i class="fa-solid fa-sun" id="theme-icon"></i>
+                </button>
+                <a href="#" class="btn btn-outline">ورود</a>
+                <a href="#" class="btn btn-primary">ثبت‌نام</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container fade-in">
         <!-- TradingView Ticker Tape Widget -->
-        <div class="tradingview-widget-container" style="margin-bottom: 2rem; border-radius: 12px; overflow: hidden; border: 1px solid var(--glass-border);">
+        <div class="tradingview-widget-container" style="margin: 2rem 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
             <div class="tradingview-widget-container__widget"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js" async>
             {
@@ -51,7 +62,7 @@
             "isTransparent": true,
             "displayMode": "adaptive",
             "colorTheme": "dark",
-            "locale": "en"
+            "locale": "fa"
             }
             </script>
         </div>
@@ -61,6 +72,43 @@
         </main>
     </div>
 
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="brand" style="margin-bottom: 1rem;">
+                        <div class="brand-icon">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                        <h2>مارکت پالس</h2>
+                    </a>
+                    <p>پلتفرم جامع و لحظه‌ای بازارهای مالی. رمزارز، طلا، ارز و بورس را در یک نگاه رصد کنید.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>دسترسی سریع</h4>
+                    <ul>
+                        <li><a href="#markets">قیمت لحظه‌ای</a></li>
+                        <li><a href="#">درباره ما</a></li>
+                        <li><a href="#">تماس با ما</a></li>
+                        <li><a href="#">سوالات متداول</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>قوانین و مقررات</h4>
+                    <ul>
+                        <li><a href="#">شرایط استفاده</a></li>
+                        <li><a href="#">حریم خصوصی</a></li>
+                        <li><a href="#">کارمزدها</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 مارکت پالس. تمامی حقوق محفوظ است.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
     <script>
         // Trigger a custom event that HTMX elements can listen to for a global refresh
         document.body.addEventListener('refresh-all', function() {

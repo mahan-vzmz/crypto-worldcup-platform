@@ -1,157 +1,159 @@
-# Crypto & World Cup Information Platform
+# MarketPulse — پلتفرم رصد بازارهای مالی
+
 [![CI](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml)
 
-A Python 3.12+ fully asynchronous platform (API, Bot & CLI) that displays live financial markets
-(Cryptocurrency, Fiat, Precious Metals) and multi-league football tournament data, 
-built as a portfolio-grade demonstration of clean, layered architecture.
+پلتفرم جامع، real-time و تمام‌async برای رصد قیمت لحظه‌ای بازارهای مالی — رمزارز، ارزهای فیات، فلزات گرانبها، بورس جهانی و بورس ایران — با وب داشبورد، بات تلگرام و CLI.
 
-It is **offline-first and anti-fragile**: every external call is cached with a
-time-to-live, and when an API is unreachable the app serves the last good data
-rather than crashing. The user never sees a raw traceback.
+**Offline-first و anti-fragile:** هر فراخوانی خارجی با TTL کش می‌شود. اگر API در دسترس نباشد، آخرین داده‌ی معتبر سرو می‌شود — نه crash.
 
-## Why this project exists
+---
 
-This is a learning and portfolio piece, not a product. Its goal is to show
-professional Python engineering in practice: Clean Architecture, SOLID (the
-Dependency Inversion Principle in particular), strict typing, asynchronous programming,
-and tests that isolate business logic from the outside world.
+## ویژگی‌ها
 
-## Features
+- **وب داشبورد** — رابط کاربری مدرن با Glassmorphism، فیلترِ بازار، جستجو و بروزرسانی خودکار هر ۳۰ ثانیه (HTMX)
+- **بات تلگرام** — دستورات `/market`، `/price`، `/watchlist`، inline query، و خلاصه‌ی صبحگاهی خودکار
+- **بازارهای پشتیبانی شده:**
+  - 🪙 رمزارزها — از Wallex (قیمت USD و تومان، تغییر ۲۴ ساعته)
+  - 💵 ارزهای فیات — EUR، GBP (محاسبه‌شده از نرخ USD/تومان Wallex)
+  - 🥇 فلزات — XAUT (طلا tokenized)، PAXG از Wallex
+  - 📈 بورس جهانی — NVDA، AAPL، MSFT، S&P 500، NASDAQ، Dow Jones از Yahoo Finance
+  - 🇮🇷 بورس ایران — شستا، فولاد، فملی، خودرو، سایپا و بیشتر از TSETMC CDN API
+- **TTL caching** — داده در DB ذخیره، درخواست‌های تکراری بدون شبکه پاسخ می‌گیرند
+- **Offline fallback** — در صورت قطعی API، آخرین کش معتبر با هشدار سرو می‌شود
 
-- **Fully Asynchronous (V7)** — Built with `asyncio`, `httpx`, `asyncpg`, and `FastAPI` for high concurrency and performance.
-- **Robust Storage** — Uses **SQLAlchemy ORM** mapped to **PostgreSQL** in production, with fallback to **SQLite** for seamless local development.
-- **Dockerized Deployments** — Ships with a complete `docker-compose` setup spinning up the Database, REST API Dashboard, and Telegram Bot securely in isolated containers.
-- **Financial Markets** — USD price, computed Toman price, 24-hour change,
-  and timestamps dynamically fetched for Crypto, Fiat (EUR, GBP), and Metals.
-- **Football Tournaments** — fixtures, results, scores, kickoff times, team names, and
-  current tournament stages for major global competitions.
-- **TTL caching** — each fetch is cached in the DB with a `fetched_at` timestamp; fresh
-  cache is served without a network call, stale cache triggers a refetch.
-- **Offline fallback** — if a live API fails, the app serves the most recent
-  cached data with a warning instead of erroring out.
+---
 
-## Architecture in one diagram
+## معماری
 
 ```
-[ Web Dashboard ]  [ Telegram Bot ]  [ CLI ]
-         \                |            /
-        [ REST API & Async Wrappers ]
-                          |
-           [ Core Service Layer ]  ----> [ Clients (httpx) ]
-                          |
-    [ Storage (SQLAlchemy + PostgreSQL/SQLite) ]
+[ وب داشبورد ]  [ بات تلگرام ]  [ CLI ]
+       \                |             /
+        [ FastAPI REST API (ASGI) ]
+                        |
+          [ لایه‌ی سرویس (CryptoService) ]
+                /    |    |     \
+  CryptoClient  FiatClient  BourseClient  IranBourseClient
+   (Wallex)   (ExchangeRate)  (Yahoo)    (TSETMC CDN)
+                        |
+    [ SQLAlchemy (SQLite dev / PostgreSQL prod) ]
 
-   ( Utilities & Configuration available to every layer )
+      ( Utils & Config — در دسترس همه لایه‌ها )
 ```
 
-Dependencies flow one direction only. Services depend on *interfaces*, not
-concrete implementations. The test suite replaces the network and DB with lightweight fakes. External API shapes
-are translated into typed domain models inside the client layer (an
-anti-corruption layer), so nothing above the clients ever sees raw API JSON.
+وابستگی‌ها **فقط یک‌طرفه** جریان دارند. سرویس‌ها به *abstractionها* وابسته‌اند، نه پیاده‌سازی‌های مشخص — این معماری مهاجرت بین پیاده‌سازی‌ها را بدون بازنویسی ممکن می‌کند.
 
-## Tech stack
+---
 
-| Concern | Choice |
+## تکنولوژی‌ها
+
+| حوزه | انتخاب |
 | --- | --- |
-| Language | Python 3.12+ |
-| Concurrency | `asyncio` |
-| HTTP Client | `httpx` (async, session reuse, explicit timeouts) |
-| Storage & ORM| `SQLAlchemy 2.0` (async) + `asyncpg` + `aiosqlite` |
-| Web API | `fastapi` + `uvicorn` |
-| UI/Templates | `jinja2` + `HTMX` + TradingView Widgets |
-| Telegram Bot | `python-telegram-bot` (async, job-queue) |
-| CLI rendering | `rich` |
-| Config | `python-dotenv` + environment variables |
+| زبان | Python 3.12+ |
+| همزمانی | `asyncio` |
+| HTTP Client | `httpx` (async، session reuse، retry با backoff) |
+| ذخیره‌سازی | `SQLAlchemy 2.0` async + `aiosqlite` (dev) / `asyncpg` (prod) |
+| وب API | `FastAPI` + `Uvicorn` (ASGI) |
+| قالب‌ها | `Jinja2` + `HTMX` + TradingView Widgets |
+| بات | `python-telegram-bot` (async، job queue) |
+| CLI | `rich` |
+| Config | `python-dotenv` + متغیرهای محیطی |
 | Container | `Docker` + `Docker Compose` |
-| Tests | `pytest` + `pytest-asyncio` |
+| تست | `pytest` + `pytest-asyncio` |
 
-## Setup (Docker - Recommended for Production)
+---
 
-The easiest way to run the full stack (Database + API + Bot) is using Docker Compose.
+## راه‌اندازی با Docker (توصیه‌شده)
 
 ```bash
-# 1. Clone the project
-git clone <your-repo-url>
+# ۱. Clone
+git clone <repo-url>
 cd crypto-worldcup-platform
 
-# 2. Create your .env from the template
+# ۲. ساخت فایل env
 cp .env.example .env
 
-# 3. Fill in your environment variables (especially TELEGRAM_BOT_TOKEN)
+# ۳. پر کردن متغیرها (حداقل TELEGRAM_BOT_TOKEN)
 nano .env
 
-# 4. Start the stack in detached mode
+# ۴. اجرا
 docker-compose up -d --build
 ```
-The Web Dashboard will be available at `http://localhost:8000`.
 
-## Setup (Local Development)
+وب داشبورد: `http://localhost:8000`
 
-Requires Python 3.12 or newer.
+---
+
+## راه‌اندازی محلی (توسعه)
+
+نیاز: Python 3.12+
 
 ```bash
-# 1. Create and activate a virtual environment
+# ۱. محیط مجازی
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+.venv\Scripts\activate     # Windows
+# source .venv/bin/activate  # Linux/Mac
 
-# 2. Install the package (editable) with dev tooling
+# ۲. نصب وابستگی‌ها
 pip install -e ".[dev]"
 
-# 3. Create your .env from the template
+# ۳. فایل env
 cp .env.example .env
 ```
 
-### Environment variables
+### متغیرهای محیطی
 
-| Variable | Required | Default | Purpose |
+| متغیر | اجباری | پیش‌فرض | کاربرد |
 | --- | --- | --- | --- |
-| `DATABASE_URL` | no | SQLite | Connection string (e.g., `postgresql+asyncpg://...`) |
-| `DATA_DIR` | no | `data` | Root for logs, settings, history |
-| `CACHE_TTL_SECONDS` | no | `300` | Freshness window before a refetch |
-| `TELEGRAM_BOT_TOKEN` | yes* | — | Required for `crypto-wc-bot` to run |
-| `FOOTBALL_API_KEY` | no | — | Football-Data.org key |
+| `DATABASE_URL` | خیر | SQLite | رشته‌ی اتصال (e.g. `postgresql+asyncpg://...`) |
+| `DATA_DIR` | خیر | `data` | ریشه‌ی logs، settings |
+| `CACHE_TTL_SECONDS` | خیر | `300` | TTL کش به ثانیه |
+| `TELEGRAM_BOT_TOKEN` | بله* | — | برای اجرای بات الزامیست |
+| `CRYPTO_API_KEY` | خیر | — | کلید API Wallex (اختیاری، public endpoints رایگان هستند) |
 
-> The `.env` file is gitignored. No secret is ever committed or logged.
+---
 
-## Running Locally
-
-Once installed via step 2 above, you can run the following console commands:
+## اجرای محلی
 
 ```bash
-crypto-wc            # Console CLI menu
-crypto-wc-api        # FastAPI Web Dashboard (runs on http://127.0.0.1:8000)
-crypto-wc-bot        # Telegram Bot Polling (requires TELEGRAM_BOT_TOKEN)
+crypto-wc          # CLI تعاملی
+crypto-wc-api      # وب داشبورد (http://127.0.0.1:8000)
+crypto-wc-bot      # بات تلگرام (نیاز به TELEGRAM_BOT_TOKEN)
 ```
 
-## Development & Testing
+---
+
+## توسعه و تست
 
 ```bash
-ruff check .         # lint
-ruff format .        # format
-mypy src             # strict type check
-pytest               # run the test suite (100% async coverage)
+ruff check .     # lint
+ruff format .    # format
+mypy src         # بررسی نوع (strict)
+pytest           # اجرای تست‌ها
 ```
 
-The test suite covers the domain models, the SQLAlchemy repository (with a real
-temporary-directory SQLite database), and the service orchestration (with fakes). No test touches a live API.
+---
 
-## Project layout
+## ساختار پروژه
 
 ```
 src/app/
-  main.py            # composition root: wires every layer, starts the CLI
-  api/               # FastAPI endpoints & dependencies
-  bot/               # Telegram bot handlers & commands
-  config/            # settings loader (frozen dataclass, env-driven)
-  models/            # typed domain dataclasses (crypto, football)
-  services/          # orchestration: cache-then-fetch with offline fallback
-  clients/           # async API adapters + base HTTP client
-  storage/           # SQLAlchemy repository + SQLite/Postgres support
-  presentation/      # rich CLI renderers
-tests/               # Pytest suite
-data/                # local SQLite DB / logs (gitignored)
+  main.py              # composition root: wire + start CLI
+  api/                 # FastAPI routers, dependencies, lifespan
+  bot/                 # handlers, inline query, jobs, formatters
+  config/              # Settings (frozen dataclass, env-driven) + DI Container
+  models/              # CryptoPrice dataclass + AssetType enum
+  services/            # CryptoService: cache-then-fetch + offline fallback
+  clients/             # httpx adapters: Wallex, FiatClient, Yahoo, TSETMC
+  storage/             # SQLAlchemy repository (SQLite/PostgreSQL)
+  presentation/        # rich CLI renderers + menu
+  templates/           # Jinja2 HTML templates
+  static/              # CSS + JS
+tests/                 # pytest suite (no live API, no real DB)
+docs/                  # معماری، تصمیم‌ها، نقشه‌ی راه
 ```
 
-## License
+---
 
-MIT — see [`LICENSE`](LICENSE).
+## مجوز
+
+MIT — نگاه کنید به [`LICENSE`](LICENSE).

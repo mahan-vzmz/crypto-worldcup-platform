@@ -7,7 +7,7 @@ from fastapi import Depends
 from app.config.container import Container
 from app.config.settings import Settings
 from app.services.crypto_service import CryptoService
-from app.services.football_service import FootballService
+
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,4 @@ def get_crypto_service(
     return container.crypto_service
 
 
-def get_football_service(
-    container: Annotated[Container, Depends(get_container)],
-) -> FootballService:
-    """Inject the FootballService from the DI container."""
-    return container.football_service
+

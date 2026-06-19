@@ -5,7 +5,7 @@ from typing import cast
 
 from telegram.ext import ContextTypes
 
-from app.bot.formatters import format_prices, format_tournament
+from app.bot.formatters import format_prices
 from app.config.container import Container
 from app.utils.result import Ok
 
@@ -40,15 +40,6 @@ async def morning_brief(context: ContextTypes.DEFAULT_TYPE) -> None:
         market_msg += "⚠️ Market data unavailable.\n"
 
     market_msg += "\n"
-
-    # 2. Fetch Football Overview
-    football_service = container.football_service
-    res_football = await football_service.get_tournament("WC")
-
-    if isinstance(res_football, Ok):
-        market_msg += format_tournament(res_football.value)
-    else:
-        market_msg += "⚠️ Football data unavailable."
 
     try:
         await context.bot.send_message(

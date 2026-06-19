@@ -11,7 +11,6 @@ from rich.table import Table
 from rich.text import Text
 
 from app.models.crypto import CryptoPrice
-from app.models.football import Match, MatchStatus, Tournament
 
 
 def _format_change(change_24h: Decimal) -> Text:
@@ -66,39 +65,4 @@ def render_price_history(symbol: str, history: list[CryptoPrice]) -> Table:
     return table
 
 
-def _format_score(match: Match) -> str:
-    """Render the score, or a dash for a match that has not started."""
-    if match.home_score is None or match.away_score is None:
-        return "-"
-    return f"{match.home_score} - {match.away_score}"
-
-
-def render_tournament(tournament: Tournament) -> Table:
-    """Build a table of matches for the tournament."""
-    table = Table(
-        title=f"{tournament.name}  ({tournament.current_stage})",
-        expand=False,
-    )
-    table.add_column("Kickoff (UTC)", style="dim")
-    table.add_column("Home", justify="right", style="bold")
-    table.add_column("Score", justify="center")
-    table.add_column("Away", style="bold")
-    table.add_column("Status")
-
-    status_styles = {
-        MatchStatus.LIVE: "bold green",
-        MatchStatus.FINISHED: "dim",
-        MatchStatus.SCHEDULED: "yellow",
-    }
-    for match in tournament.matches:
-        table.add_row(
-            match.kickoff.strftime("%Y-%m-%d %H:%M"),
-            match.home_team.name,
-            _format_score(match),
-            match.away_team.name,
-            Text(
-                match.status.value.title(),
-                style=status_styles[match.status],
-            ),
-        )
     return table

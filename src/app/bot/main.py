@@ -9,13 +9,16 @@ from telegram.ext import (
     CommandHandler,
     InlineQueryHandler,
 )
-
 from app.bot.handlers import (
-    football_command,
     market_callback,
     market_command,
+    price_callback,
     price_command,
     start_command,
+    watch_add_callback,
+    watch_refresh_callback,
+    watch_remove_callback,
+    watchlist_command,
 )
 from app.bot.inline import inline_query
 from app.bot.jobs import morning_brief
@@ -44,11 +47,24 @@ def run_bot(container: Container) -> None:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", start_command))
     application.add_handler(CommandHandler("market", market_command))
-    application.add_handler(CommandHandler("football", football_command))
+
     application.add_handler(CommandHandler("price", price_command))
+    application.add_handler(CommandHandler("watchlist", watchlist_command))
 
     # Callback Query Handlers (for Inline Keyboards)
-    application.add_handler(CallbackQueryHandler(market_callback, pattern="^market_"))
+    application.add_handler(
+        CallbackQueryHandler(market_callback, pattern="^(market|refresh)_")
+    )
+    application.add_handler(CallbackQueryHandler(price_callback, pattern="^price_"))
+    application.add_handler(
+        CallbackQueryHandler(watch_add_callback, pattern="^watch_add_")
+    )
+    application.add_handler(
+        CallbackQueryHandler(watch_remove_callback, pattern="^watch_remove_")
+    )
+    application.add_handler(
+        CallbackQueryHandler(watch_refresh_callback, pattern="^watch_refresh$")
+    )
 
     # Inline Query Handler
     application.add_handler(InlineQueryHandler(inline_query))

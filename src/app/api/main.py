@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.dependencies import get_container
-from app.api.routers import crypto, dashboard, football
+from app.api.routers import crypto, dashboard
 from app.utils.exceptions import ConfigError
 from app.utils.logger import setup_logging
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifecycle events for the FastAPI application."""
     container = get_container()
     await container.repository.initialize()
@@ -28,9 +28,9 @@ def create_app() -> FastAPI:
     setup_logging(log_filename="api.log")
 
     app = FastAPI(
-        title="Crypto & World Cup API",
-        description="REST API for cryptocurrency prices and World Cup data.",
-        version="4.0.0",
+        title="MarketPulse API",
+        description="REST API for real-time market prices: crypto, fiat, metals, and stocks.",
+        version="1.0.0",
         lifespan=lifespan,
     )
 
@@ -39,10 +39,10 @@ def create_app() -> FastAPI:
 
     app.include_router(dashboard.router)
     app.include_router(crypto.router)
-    app.include_router(football.router)
+
 
     @app.exception_handler(ConfigError)
-    async def config_error_handler(request: Request, exc: ConfigError) -> JSONResponse:
+    async def config_error_handler(_request: Request, exc: ConfigError) -> JSONResponse:
         logger.error(f"Configuration error: {exc}")
         return JSONResponse(
             status_code=500,

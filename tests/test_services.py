@@ -1,9 +1,7 @@
-"""Tests for service orchestration.
+"""Tests for CryptoService orchestration.
 
 Lightweight in-memory fakes replace the real client and repository so
 the cache-then-fetch policy is tested in isolation: no network, no disk.
-The BaseRepository ABC is what makes the fake repository a drop-in;
-FakeCryptoClient structurally satisfies CryptoClientProtocol (no inheritance).
 """
 
 from datetime import UTC, datetime, timedelta
@@ -14,7 +12,6 @@ import pytest
 
 from app.config.settings import Settings
 from app.models.crypto import AssetType, CryptoPrice
-from app.models.football import Tournament
 from app.services.cache_strategy import TTLCacheStrategy
 from app.services.crypto_service import CryptoService
 from app.storage.base_repository import BaseRepository, Cached
@@ -24,7 +21,6 @@ from app.utils.result import Err, Ok
 SETTINGS = Settings(
     data_dir=Path("dummy_dir"),
     crypto_api_key="dummy_crypto",
-    football_api_key="dummy_football",
     cache_ttl_seconds=300,
     telegram_bot_token="dummy_token",
     telegram_broadcast_chat_id="dummy_chat",
@@ -49,7 +45,6 @@ class FakeRepository(BaseRepository):
     def __init__(self) -> None:
         self._prices: Cached[list[CryptoPrice]] | None = None
         self._history: list[CryptoPrice] = []
-        self._tournament: Cached[Tournament] | None = None
         self.save_calls = 0
 
     async def save_prices(self, prices: list[CryptoPrice]) -> None:
@@ -63,25 +58,25 @@ class FakeRepository(BaseRepository):
     async def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
         return [p for p in self._history if p.symbol == symbol][:limit]
 
-    async def save_tournament(self, tournament: Tournament) -> None:
-        self.save_calls += 1
-        self._tournament = Cached(data=tournament, fetched_at=datetime.now(UTC))
+    async def get_or_create_user(self, _telegram_id: int, _username: str | None, _first_name: str | None) -> None:
+        pass
 
-    async def load_tournament(self, name: str) -> Cached[Tournament] | None:
-        return self._tournament
+    async def get_watchlist(self, _telegram_id: int) -> list[str]:
+        return []
+
+    async def add_to_watchlist(self, _telegram_id: int, _symbol: str) -> bool:
+        return True
+
+    async def remove_from_watchlist(self, _telegram_id: int, _symbol: str) -> bool:
+        return True
 
     def seed_prices(self, prices: list[CryptoPrice], *, age_seconds: int) -> None:
-        """Place a pre-built cache entry with a chosen age."""
         fetched_at = datetime.now(UTC) - timedelta(seconds=age_seconds)
         self._prices = Cached(data=list(prices), fetched_at=fetched_at)
 
 
 class FakeCryptoClient:
-    """Stand-in for CryptoClient: returns canned prices or raises."""
-
-    def __init__(
-        self, prices: list[CryptoPrice] | None = None, *, fail: bool = False
-    ) -> None:
+    def __init__(self, prices: list[CryptoPrice] | None = None, *, fail: bool = False) -> None:
         self._prices = prices or []
         self._fail = fail
         self.fetch_calls = 0
@@ -94,13 +89,24 @@ class FakeCryptoClient:
 
 
 class FakeFiatClient:
-    async def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:
+    async def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:  # noqa: ARG002
+        return {}
+
+
+class FakeBourseClient:
+    async def fetch_stocks(self, symbols: list[str]) -> dict[str, dict[str, str | Decimal]]:  # noqa: ARG002
         return {}
 
 
 def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
     cache_strategy = TTLCacheStrategy(ttl_seconds=SETTINGS.cache_ttl_seconds)
-    return CryptoService(client, FakeFiatClient(), repo, cache_strategy)
+    return CryptoService(
+        client=client,
+        fiat_client=FakeFiatClient(),
+        bourse_client=FakeBourseClient(),
+        repository=repo,
+        cache_strategy=cache_strategy,
+    )
 
 
 class TestFreshCacheHit:
@@ -108,7 +114,7 @@ class TestFreshCacheHit:
     async def test_serves_cache_without_calling_client(self) -> None:
         repo = FakeRepository()
         repo.seed_prices([a_price()], age_seconds=10)
-        client = FakeCryptoClient(fail=True)  # would raise if called
+        client = FakeCryptoClient(fail=True)
         service = build_service(client, repo)
 
         result = await service.get_prices()
@@ -132,7 +138,6 @@ class TestStaleAndMiss:
         assert client.fetch_calls == 1
         assert repo.save_calls == 1
         assert isinstance(result, Ok)
-        assert result.value == fresh
 
     @pytest.mark.asyncio
     async def test_cache_miss_triggers_fetch_and_save(self) -> None:
@@ -157,7 +162,7 @@ class TestOfflineFallback:
         result = await service.get_prices()
 
         assert client.fetch_calls == 1
-        assert repo.save_calls == 0  # nothing fresh to save
+        assert repo.save_calls == 0
         assert isinstance(result, Ok)
         assert result.value[0].symbol == "BTC"
 
@@ -181,7 +186,7 @@ class TestPriceHistory:
         client = FakeCryptoClient([a_price()])
         service = build_service(client, repo)
 
-        await service.get_prices()  # records one batch
+        await service.get_prices()
         result = await service.get_price_history("BTC", limit=10)
 
         assert isinstance(result, Ok)

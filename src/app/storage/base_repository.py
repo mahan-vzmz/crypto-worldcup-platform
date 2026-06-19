@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from app.models.crypto import CryptoPrice
-from app.models.football import Tournament
 
 
 @dataclass(frozen=True)
@@ -66,23 +65,39 @@ class BaseRepository(ABC):
             StorageError: if the history cannot be read.
         """
 
-    # ---- football ----
+
+    # ---- user & watchlist ----
 
     @abstractmethod
-    async def save_tournament(self, tournament: Tournament) -> None:
-        """Persist the tournament snapshot, replacing any previous one.
-
-        The tournament is snapshot-only (no history in V2): each save
-        supersedes the last.
+    async def get_or_create_user(
+        self, telegram_id: int, username: str | None, first_name: str | None
+    ) -> None:
+        """Ensure a user exists in the database.
 
         Raises:
             StorageError: if the data cannot be written.
         """
 
     @abstractmethod
-    async def load_tournament(self, name: str) -> "Cached[Tournament] | None":
-        """Return the most recently saved tournament by name, or ``None`` if absent.
+    async def get_watchlist(self, telegram_id: int) -> list[str]:
+        """Return a list of symbols in the user's watchlist.
 
         Raises:
-            StorageError: if stored data exists but cannot be read.
+            StorageError: if the data cannot be read.
+        """
+
+    @abstractmethod
+    async def add_to_watchlist(self, telegram_id: int, symbol: str) -> bool:
+        """Add a symbol to the user's watchlist. Returns True if added, False if already exists.
+
+        Raises:
+            StorageError: if the data cannot be written.
+        """
+
+    @abstractmethod
+    async def remove_from_watchlist(self, telegram_id: int, symbol: str) -> bool:
+        """Remove a symbol from the user's watchlist. Returns True if removed, False if it wasn't there.
+
+        Raises:
+            StorageError: if the data cannot be written.
         """

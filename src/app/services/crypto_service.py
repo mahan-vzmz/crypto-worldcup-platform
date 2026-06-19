@@ -12,7 +12,11 @@ longer (de)serializes -- it just orchestrates. It also exposes price history.
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from app.clients.protocols import CryptoClientProtocol, FiatClientProtocol
+from app.clients.protocols import (
+    BourseClientProtocol,
+    CryptoClientProtocol,
+    FiatClientProtocol,
+)
 from app.models.crypto import AssetType, CryptoPrice
 from app.services.cache_strategy import CacheStrategyProtocol
 from app.storage.base_repository import BaseRepository
@@ -30,11 +34,13 @@ class CryptoService:
         self,
         client: CryptoClientProtocol,
         fiat_client: FiatClientProtocol,
+        bourse_client: BourseClientProtocol,
         repository: BaseRepository,
         cache_strategy: CacheStrategyProtocol,
     ) -> None:
         self._client = client
         self._fiat_client = fiat_client
+        self._bourse_client = bourse_client
         self._repository = repository
         self._cache_strategy = cache_strategy
 
@@ -101,6 +107,34 @@ class CryptoService:
                     )
             except APIError as exc:
                 logger.warning(f"Failed to fetch fiat rates: {exc}")
+
+        # Fetch Bourse (Stocks/Indices)
+        try:
+            bourse_symbols = ["NVDA", "AAPL", "MSFT", "^GSPC", "^IXIC", "^DJI"]
+            bourse_names = {
+                "NVDA": "Nvidia",
+                "AAPL": "Apple",
+                "MSFT": "Microsoft",
+                "^GSPC": "S&P 500",
+                "^IXIC": "NASDAQ",
+                "^DJI": "Dow Jones",
+            }
+            stocks = await self._bourse_client.fetch_stocks(bourse_symbols)
+            bourse_fetched_at = datetime.now(UTC)
+            for sym, data in stocks.items():
+                prices.append(
+                    CryptoPrice(
+                        symbol=sym,
+                        name=bourse_names.get(sym, sym),
+                        price_usd=Decimal(str(data["price"])),
+                        price_toman=Decimal("0"),  # Usually not priced in toman directly
+                        change_24h=Decimal(str(data["change"])),
+                        type=AssetType.BOURSE,
+                        last_updated=bourse_fetched_at,
+                    )
+                )
+        except Exception as exc:
+            logger.warning(f"Failed to fetch bourse data: {exc}")
 
         await self._repository.save_prices(prices)
         logger.debug("crypto cache refreshed from API")

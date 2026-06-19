@@ -191,11 +191,24 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Technologies introduced:** PostgreSQL, SQLAlchemy, async/await (`httpx`), Docker, Docker Compose, GitHub Actions.
 - **Learning objectives:** ORMs, asynchronous programming, containerization, deployment, continuous integration.
 
-### Version 8 - Advanced Bot Features *(Planned)*
-- **Features:** Sophisticated interactive Telegram bot capabilities, advanced user preferences, alerts, etc.
-- **Architectural changes:** TBD.
-- **Technologies introduced:** TBD.
-- **Learning objectives:** Advanced chatbot UX, stateful conversational flows.
+### Version 8 - MarketPulse Transformation ✅ *(in progress — 2026-06-19)*
+- **Goal:** Pivot from the "crypto + football" learning project to a production-ready market data platform called MarketPulse, inspired by swapwallet.app.
+- **Phase 1 (complete):** Codebase cleanup — fix broken imports, add missing `image_url` model field, rename API title, purge football references from docs/settings.
+- **Phase 2 (complete):** Iran Bourse dropped — TSETMC API returned empty data in testing; `IranBourseClient`, `IranBourseClientProtocol`, and `IRAN_BOURSE` asset type fully removed; all 35 tests green.
+- **Phase 3 (planned):** Richer market data — real gold/dollar free-market prices from a reliable Iranian source (navasan.ir or tgju.org); 24h change for fiat pairs.
+- **Phase 4 (planned):** UI feature upgrade — sparkline charts per asset (Chart.js Lightweight Charts), price alert system (user sets threshold → bot notification), portfolio tracker.
+- **Phase 5 (planned):** PWA + mobile readiness — service worker, manifest.json, responsive layout improvements.
+- **Technologies introduced:** TSETMC CDN API, Chart.js, PWA.
+
+### Version 9 - Price Alerts & Portfolio *(Planned)*
+- **Features:** per-user price alert subscriptions stored in DB; portfolio tracking (buy price, quantity, P&L); push to Telegram when threshold crossed.
+- **Architectural changes:** user model + notification job in bot layer.
+- **Learning objectives:** stateful chatbot flows, background job scheduling, user-specific data.
+
+### Version 10 - Web App & Mobile *(Planned)*
+- **Features:** Progressive Web App with offline support; React Native or Flutter mobile app consuming the same REST API.
+- **Architectural changes:** API versioning, authentication (JWT), CORS configuration.
+- **Learning objectives:** cross-platform development, API design for multiple clients.
 
 ---
 

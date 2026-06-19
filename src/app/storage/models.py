@@ -28,34 +28,26 @@ class PriceHistoryModel(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
-class TournamentModel(Base):
-    __tablename__ = "tournament"
+class UserModel(Base):
+    __tablename__ = "bot_user"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String)
-    code: Mapped[str] = mapped_column(String, default="WC", index=True)
-    current_stage: Mapped[str] = mapped_column(String)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    telegram_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    username: Mapped[str | None] = mapped_column(String)
+    first_name: Mapped[str | None] = mapped_column(String)
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    matches: Mapped[list["MatchModel"]] = relationship(
-        back_populates="tournament", cascade="all, delete-orphan"
+    watchlists: Mapped[list["WatchlistModel"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
 
 
-class MatchModel(Base):
-    __tablename__ = "match"
+class WatchlistModel(Base):
+    __tablename__ = "watchlist"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    tournament_id: Mapped[int] = mapped_column(
-        ForeignKey("tournament.id", ondelete="CASCADE")
-    )
-    home_name: Mapped[str] = mapped_column(String)
-    home_code: Mapped[str | None] = mapped_column(String)
-    away_name: Mapped[str] = mapped_column(String)
-    away_code: Mapped[str | None] = mapped_column(String)
-    home_score: Mapped[int | None] = mapped_column(Integer)
-    away_score: Mapped[int | None] = mapped_column(Integer)
-    kickoff: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    status: Mapped[str] = mapped_column(String)
+    user_id: Mapped[int] = mapped_column(ForeignKey("bot_user.id", ondelete="CASCADE"))
+    symbol: Mapped[str] = mapped_column(String, index=True)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
-    tournament: Mapped["TournamentModel"] = relationship(back_populates="matches")
+    user: Mapped["UserModel"] = relationship(back_populates="watchlists")

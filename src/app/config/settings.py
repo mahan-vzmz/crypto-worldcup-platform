@@ -1,17 +1,4 @@
-"""Application configuration: the single, validated source of truth.
-
-Configuration is loaded once at startup via ``Settings.from_env`` and injected
-wherever it is needed. No other module reads the environment directly.
-
-Secrets and environment-specific values (the data directory, API keys) come from
-environment variables, optionally populated from a gitignored ``.env`` file.
-Non-secret tunable values (such as the cache TTL) have sensible in-code defaults
-that the environment may override.
-
-The data directory and its subdirectories are created on startup
-(``ensure_directories``) so the application runs correctly on a fresh clone,
-where the gitignored runtime folders do not yet exist.
-"""
+"""Application configuration: the single, validated source of truth."""
 
 import os
 from dataclasses import dataclass
@@ -23,26 +10,15 @@ from app.utils.exceptions import ConfigError
 
 _DEFAULT_DATA_DIR = "data"
 _DEFAULT_CACHE_TTL_SECONDS = 300
-_DEFAULT_CACHE_TTL_SECONDS = 300
 
 
 @dataclass(frozen=True)
 class Settings:
-    """Immutable application configuration.
-
-    Attributes:
-        data_dir: Root directory for all runtime data (cache, logs, etc.).
-        cache_ttl_seconds: How long cached API data is considered fresh.
-        crypto_api_key: API key for the cryptocurrency provider. May be empty in
-            Version 1 until the client is implemented (Milestone M4).
-        football_api_key: API key for the football provider. May be empty until
-            Milestone M4.
-    """
+    """Immutable application configuration."""
 
     data_dir: Path
     cache_ttl_seconds: int
     crypto_api_key: str
-    football_api_key: str
     telegram_bot_token: str
     telegram_broadcast_chat_id: str
 
@@ -115,7 +91,6 @@ class Settings:
             data_dir=data_dir,
             cache_ttl_seconds=cache_ttl_seconds,
             crypto_api_key=os.getenv("CRYPTO_API_KEY", ""),
-            football_api_key=os.getenv("FOOTBALL_API_KEY", ""),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", ""),
             telegram_broadcast_chat_id=os.getenv("TELEGRAM_BROADCAST_CHAT_ID", ""),
         )
