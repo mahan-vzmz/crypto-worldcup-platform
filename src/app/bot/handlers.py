@@ -14,7 +14,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Send a welcome message when the command /start is issued."""
     welcome_text = (
         "👋 <b>به ربات بازارهای مالی خوش آمدید!</b>\n\n"
-        "من می‌توانم قیمت لحظه‌ای رمزارزها، ارزهای فیات، فلزات گران‌بها و بورس را به شما نشان دهم.\n\n"
+        "من می‌توانم قیمت لحظه‌ای رمزارزها، ارزهای فیات، فلزات گران‌بها "
+        "و بورس را به شما نشان دهم.\n\n"
         "/market - مشاهده قیمت‌های بازار\n"
         "/price &lt;نماد&gt; - دریافت قیمت یک دارایی خاص\n"
         "/watchlist - مشاهده واچ‌لیست شخصی شما\n"
@@ -108,14 +109,11 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             raise
 
 
-
 async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Get the price of a specific symbol."""
     if not context.args:
         if update.message:
-            await update.message.reply_text(
-                "لطفاً یک نماد وارد کنید. مثال: /price BTC"
-            )
+            await update.message.reply_text("لطفاً یک نماد وارد کنید. مثال: /price BTC")
         return
 
     symbol = context.args[0].upper()
@@ -249,7 +247,8 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if update.message:
             await update.message.reply_text(
                 "⭐ واچ‌لیست شما خالی است!\n"
-                "از دستور /market یا /price برای یافتن دارایی‌ها و افزودن آنها استفاده کنید."
+                "از دستور /market یا /price برای یافتن دارایی‌ها "
+                "و افزودن آنها استفاده کنید."
             )
         return
 

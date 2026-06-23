@@ -9,6 +9,7 @@ V2: the repository now maps domain models <-> rows itself, so the service no
 longer (de)serializes -- it just orchestrates. It also exposes price history.
 """
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -16,6 +17,7 @@ from app.clients.protocols import (
     BourseClientProtocol,
     CryptoClientProtocol,
     FiatClientProtocol,
+    MarketDataClientProtocol,
 )
 from app.models.crypto import AssetType, CryptoPrice
 from app.services.cache_strategy import CacheStrategyProtocol
@@ -28,7 +30,13 @@ logger = get_logger(__name__)
 
 
 class CryptoService:
-    """Coordinates the crypto client, fiat client, and the storage repository."""
+    """Coordinates the market-data sources, fiat client, and storage repository.
+
+    The crypto coin list is sourced from a global provider (CoinGecko) for its
+    rich data — logos, market cap, volume, rank, sparklines — then enriched with
+    Toman prices from the local exchange (Wallex). The local exchange also
+    supplies metals and the USDT/Toman reference rate used to convert fiat.
+    """
 
     def __init__(
         self,
@@ -37,39 +45,74 @@ class CryptoService:
         bourse_client: BourseClientProtocol,
         repository: BaseRepository,
         cache_strategy: CacheStrategyProtocol,
+        market_client: MarketDataClientProtocol,
     ) -> None:
         self._client = client
         self._fiat_client = fiat_client
         self._bourse_client = bourse_client
         self._repository = repository
         self._cache_strategy = cache_strategy
+        self._market_client = market_client
 
     async def get_prices(self) -> Result[list[CryptoPrice], APIError]:
-        """Return prices, preferring fresh cache, then API, then stale cache.
+        """Return prices, preferring fresh cache, then APIs, then stale cache.
 
-        Returns an Ok with prices on success, or an Err with an APIError
-        if the API fails and no cache exists at all.
+        Returns an Ok with prices on success, or an Err with an APIError if
+        every market source fails and no cache exists at all.
         """
         cached = await self._repository.load_latest_prices()
         if cached is not None and self._cache_strategy.is_fresh(cached.fetched_at):
             logger.debug("crypto cache hit (fresh)")
             return Ok(cached.data)
 
-        try:
-            prices = await self._client.fetch_prices()
-        except APIError as exc:
-            if cached is not None:
-                logger.warning("crypto API unavailable; serving stale cache")
-                return Ok(cached.data)
-            logger.error("crypto API unavailable and no cache to fall back on")
-            return Err(exc)
+        prices: list[CryptoPrice] = []
 
-        # Attempt to enrich with fiat prices (EUR, GBP)
-        usd_price_toman = None
-        for p in prices:
-            if p.symbol == "USDT":
-                usd_price_toman = p.price_toman
-                break
+        # 1. Local exchange (Wallex): Toman prices, USDT rate, metals, fiat.
+        toman_by_symbol: dict[str, Decimal] = {}
+        usd_price_toman: Decimal | None = None
+        wallex_prices: list[CryptoPrice] | None = None
+        try:
+            wallex_prices = await self._client.fetch_prices()
+        except APIError as exc:
+            logger.warning("local exchange (Wallex) unavailable: %s", exc)
+
+        if wallex_prices is not None:
+            for p in wallex_prices:
+                toman_by_symbol[p.symbol] = p.price_toman
+                if p.symbol == "USDT":
+                    usd_price_toman = p.price_toman
+                # Keep non-crypto entries; CoinGecko owns the crypto list.
+                if p.type is not AssetType.CRYPTO:
+                    prices.append(p)
+
+        # 2. Global market data (CoinGecko): the crypto coin list itself.
+        coins: list[CryptoPrice] | None = None
+        try:
+            coins = await self._market_client.fetch_markets()
+        except APIError as exc:
+            logger.warning("global market data (CoinGecko) unavailable: %s", exc)
+
+        if coins is not None:
+            for c in coins:
+                toman = toman_by_symbol.get(c.symbol)
+                if toman is None and usd_price_toman is not None:
+                    # No local market for this coin: convert via the USDT rate.
+                    toman = usd_price_toman * c.price_usd
+                prices.append(
+                    replace(c, price_toman=toman if toman is not None else Decimal("0"))
+                )
+        elif wallex_prices is not None:
+            # CoinGecko down: keep Wallex's own crypto entries so the list still
+            # renders (without logos / market cap / sparklines).
+            prices.extend(p for p in wallex_prices if p.type is AssetType.CRYPTO)
+
+        # If every crypto source failed, fall back to the last good cache.
+        if not prices:
+            if cached is not None:
+                logger.warning("all market sources unavailable; serving stale cache")
+                return Ok(cached.data)
+            logger.error("all market sources unavailable and no cache to fall back on")
+            return Err(APIError("no market data available from any source"))
 
         if usd_price_toman is not None:
             try:
@@ -127,7 +170,9 @@ class CryptoService:
                         symbol=sym,
                         name=bourse_names.get(sym, sym),
                         price_usd=Decimal(str(data["price"])),
-                        price_toman=Decimal("0"),  # Usually not priced in toman directly
+                        price_toman=Decimal(
+                            "0"
+                        ),  # Usually not priced in toman directly
                         change_24h=Decimal(str(data["change"])),
                         type=AssetType.BOURSE,
                         last_updated=bourse_fetched_at,

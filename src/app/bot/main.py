@@ -9,6 +9,7 @@ from telegram.ext import (
     CommandHandler,
     InlineQueryHandler,
 )
+
 from app.bot.handlers import (
     market_callback,
     market_command,

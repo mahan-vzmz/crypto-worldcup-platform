@@ -28,9 +28,11 @@ class YahooBourseClient(BaseAPIClient):
             }
         )
 
-    async def fetch_stocks(self, symbols: list[str]) -> dict[str, dict[str, str | Decimal]]:
+    async def fetch_stocks(
+        self, symbols: list[str]
+    ) -> dict[str, dict[str, str | Decimal]]:
         """Fetch stock market data for multiple symbols.
-        
+
         Yahoo Finance API /v8/finance/chart/{ticker}
         """
         results: dict[str, dict[str, str | Decimal]] = {}
@@ -42,22 +44,20 @@ class YahooBourseClient(BaseAPIClient):
                 # but Yahoo provides regularMarketPrice and regularMarketChangePercent
                 data = await self.get_json(
                     f"/v8/finance/chart/{symbol}",
-                    params={"interval": "1d", "range": "1d"}
+                    params={"interval": "1d", "range": "1d"},
                 )
 
                 meta = data["chart"]["result"][0]["meta"]
                 price = Decimal(str(meta.get("regularMarketPrice", 0)))
-                # Yahoo sometimes gives regularMarketChangePercent as a decimal e.g. 1.25 for 1.25%
+                # Yahoo sometimes gives regularMarketChangePercent as a
+                # decimal e.g. 1.25 for 1.25%
                 prev_close = Decimal(str(meta.get("chartPreviousClose", 0)))
-                
+
                 change_pct = Decimal("0")
                 if prev_close > 0:
                     change_pct = ((price - prev_close) / prev_close) * Decimal("100")
 
-                results[symbol] = {
-                    "price": price,
-                    "change": change_pct
-                }
+                results[symbol] = {"price": price, "change": change_pct}
             except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
                 logger.warning("Failed to fetch bourse data for %s: %s", symbol, exc)
 

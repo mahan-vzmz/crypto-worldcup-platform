@@ -18,7 +18,9 @@ async def make_repo(tmp_path: Path) -> SQLAlchemyRepository:
     return repo
 
 
-def a_price(symbol: str = "BTC", price_usd: Decimal = Decimal("65000.0")) -> CryptoPrice:
+def a_price(
+    symbol: str = "BTC", price_usd: Decimal = Decimal("65000.0")
+) -> CryptoPrice:
     return CryptoPrice(
         symbol=symbol,
         name="Bitcoin" if symbol == "BTC" else symbol,
@@ -102,7 +104,9 @@ class TestPriceHistory:
 
 class TestPersistence:
     @pytest.mark.asyncio
-    async def test_data_survives_a_new_repository_instance(self, tmp_path: Path) -> None:
+    async def test_data_survives_a_new_repository_instance(
+        self, tmp_path: Path
+    ) -> None:
         db_url = f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}"
 
         repo1 = SQLAlchemyRepository(database_url=db_url)

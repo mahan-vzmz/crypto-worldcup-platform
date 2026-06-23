@@ -65,7 +65,6 @@ class BaseRepository(ABC):
             StorageError: if the history cannot be read.
         """
 
-
     # ---- user & watchlist ----
 
     @abstractmethod
@@ -88,7 +87,9 @@ class BaseRepository(ABC):
 
     @abstractmethod
     async def add_to_watchlist(self, telegram_id: int, symbol: str) -> bool:
-        """Add a symbol to the user's watchlist. Returns True if added, False if already exists.
+        """Add a symbol to the user's watchlist.
+
+        Returns True if added, False if it already exists.
 
         Raises:
             StorageError: if the data cannot be written.
@@ -96,7 +97,9 @@ class BaseRepository(ABC):
 
     @abstractmethod
     async def remove_from_watchlist(self, telegram_id: int, symbol: str) -> bool:
-        """Remove a symbol from the user's watchlist. Returns True if removed, False if it wasn't there.
+        """Remove a symbol from the user's watchlist.
+
+        Returns True if removed, False if it wasn't there.
 
         Raises:
             StorageError: if the data cannot be written.

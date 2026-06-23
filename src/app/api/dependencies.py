@@ -8,7 +8,6 @@ from app.config.container import Container
 from app.config.settings import Settings
 from app.services.crypto_service import CryptoService
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -25,6 +24,3 @@ def get_crypto_service(
 ) -> CryptoService:
     """Inject the CryptoService from the DI container."""
     return container.crypto_service
-
-
-

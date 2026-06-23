@@ -24,6 +24,12 @@ class PriceHistoryModel(Base):
     price_toman: Mapped[float] = mapped_column(Float)
     change_24h: Mapped[float] = mapped_column(Float)
     asset_type: Mapped[str] = mapped_column(String, default=AssetType.CRYPTO.value)
+    image_url: Mapped[str] = mapped_column(String, default="")
+    market_cap: Mapped[float] = mapped_column(Float, default=0.0)
+    volume_24h: Mapped[float] = mapped_column(Float, default=0.0)
+    rank: Mapped[int] = mapped_column(Integer, default=0)
+    # 7-day sparkline points stored as a JSON array of floats.
+    sparkline: Mapped[str] = mapped_column(String, default="[]")
     last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 

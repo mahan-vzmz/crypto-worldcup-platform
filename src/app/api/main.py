@@ -29,7 +29,9 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="MarketPulse API",
-        description="REST API for real-time market prices: crypto, fiat, metals, and stocks.",
+        description=(
+            "REST API for real-time market prices: crypto, fiat, metals, and stocks."
+        ),
         version="1.0.0",
         lifespan=lifespan,
     )
@@ -39,7 +41,6 @@ def create_app() -> FastAPI:
 
     app.include_router(dashboard.router)
     app.include_router(crypto.router)
-
 
     @app.exception_handler(ConfigError)
     async def config_error_handler(_request: Request, exc: ConfigError) -> JSONResponse:

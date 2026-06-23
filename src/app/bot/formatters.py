@@ -29,10 +29,18 @@ def format_prices(prices: Sequence[CryptoPrice], title: str = "قیمت‌های
             trend = "⚪ 0.00%"
 
         if p.price_toman > 0:
-            lines.append(f"🔹 <b>{symbol}</b> ({name})\n💵 {usd} | 🇮🇷 {toman}\n📈 تغییر (۲۴ساعت): {trend}\n")
+            lines.append(
+                f"🔹 <b>{symbol}</b> ({name})\n💵 {usd} | 🇮🇷 {toman}\n"
+                f"📈 تغییر (۲۴ساعت): {trend}\n"
+            )
         else:
-            lines.append(f"🔹 <b>{symbol}</b> ({name})\n💵 {usd}\n📈 تغییر (۲۴ساعت): {trend}\n")
+            lines.append(
+                f"🔹 <b>{symbol}</b> ({name})\n💵 {usd}\n📈 تغییر (۲۴ساعت): {trend}\n"
+            )
 
-    lines.append("\n<i>نمایش برترین نتایج. برای سایر دارایی‌ها از /price &lt;نماد&gt; استفاده کنید.</i>")
+    lines.append(
+        "\n<i>نمایش برترین نتایج. برای سایر دارایی‌ها از "
+        "/price &lt;نماد&gt; استفاده کنید.</i>"
+    )
 
     return "\n".join(lines)

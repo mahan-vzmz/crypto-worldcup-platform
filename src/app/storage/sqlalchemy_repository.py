@@ -1,5 +1,6 @@
 """SQLAlchemy implementation of the repository contract."""
 
+import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -7,7 +8,6 @@ from decimal import Decimal
 
 from sqlalchemy import delete, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import selectinload
 
 from app.models.crypto import AssetType, CryptoPrice
 from app.storage.base_repository import BaseRepository, Cached
@@ -54,6 +54,11 @@ class SQLAlchemyRepository(BaseRepository):
                 price_toman=float(p.price_toman),
                 change_24h=float(p.change_24h),
                 asset_type=p.type.value,
+                image_url=p.image_url,
+                market_cap=float(p.market_cap),
+                volume_24h=float(p.volume_24h),
+                rank=p.rank,
+                sparkline=json.dumps(list(p.sparkline)),
                 last_updated=p.last_updated,
                 fetched_at=fetched_at,
             )
@@ -115,6 +120,10 @@ class SQLAlchemyRepository(BaseRepository):
             if model.last_updated.tzinfo
             else model.last_updated.replace(tzinfo=UTC)
         )
+        try:
+            sparkline = tuple(float(x) for x in json.loads(model.sparkline or "[]"))
+        except (ValueError, TypeError):
+            sparkline = ()
         return CryptoPrice(
             symbol=model.symbol,
             name=model.name,
@@ -123,6 +132,11 @@ class SQLAlchemyRepository(BaseRepository):
             change_24h=Decimal(str(model.change_24h)),
             type=AssetType(model.asset_type),
             last_updated=lu,
+            image_url=model.image_url or "",
+            market_cap=Decimal(str(model.market_cap)),
+            volume_24h=Decimal(str(model.volume_24h)),
+            rank=model.rank,
+            sparkline=sparkline,
         )
 
     # ---- user & watchlist ----
