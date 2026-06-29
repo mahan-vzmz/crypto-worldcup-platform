@@ -64,3 +64,26 @@ async def partial_crypto(
         name="partials/crypto_table.html",
         context={"crypto_prices": crypto_prices},
     )
+
+
+@router.get("/coin/{symbol}", response_class=HTMLResponse)
+async def coin_detail(
+    request: Request,
+    symbol: str,
+    crypto_service: Annotated[CryptoService, Depends(get_crypto_service)],
+) -> HTMLResponse:
+    """Render a detail page for a single asset: stats, chart, and history."""
+    symbol_u = symbol.upper()
+
+    crypto_res = await crypto_service.get_prices()
+    prices = crypto_res.value if isinstance(crypto_res, Ok) else []
+    price = next((p for p in prices if p.symbol.upper() == symbol_u), None)
+
+    history_res = await crypto_service.get_price_history(symbol_u, limit=20)
+    history = history_res.value if isinstance(history_res, Ok) else []
+
+    return templates.TemplateResponse(
+        request=request,
+        name="coin_detail.html",
+        context={"price": price, "symbol": symbol_u, "history": history},
+    )

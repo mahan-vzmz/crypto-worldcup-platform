@@ -29,7 +29,7 @@
                 <div class="asset-cell">
                     <img src="{% if price.image_url %}{{ price.image_url }}{% else %}https://ui-avatars.com/api/?name={{ price.symbol }}&background=random&color=fff&rounded=true&bold=true{% endif %}" alt="{{ price.name }}" class="asset-logo" loading="lazy">
                     <div class="asset-info">
-                        <span class="asset-name">{{ price.name }}</span>
+                        <a href="/coin/{{ price.symbol }}" class="asset-name asset-link">{{ price.name }}</a>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
                             <span class="asset-symbol">{{ price.symbol }}</span>
                             {% if price.type.value == 'crypto' %}

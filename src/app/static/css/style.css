@@ -732,6 +732,70 @@ th.sortable.sort-desc::after {
 .sparkline-cell .spark-up { stroke: var(--success); }
 .sparkline-cell .spark-down { stroke: var(--danger); }
 
+/* Clickable asset name in the coin list */
+.asset-link {
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: color 0.15s ease;
+}
+.asset-link:hover {
+  color: var(--accent-primary);
+}
+
+/* --- Coin detail page --- */
+.coin-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+}
+.coin-price-block {
+  text-align: left;
+}
+.coin-price-usd {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+.coin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+}
+.stat-box-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.stat-box-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.stat-box-value small {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.spark-large {
+  width: 100%;
+}
+.spark-large svg.spark {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 768px) {
+  .coin-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
 @media (max-width: 1024px) {
   .hide-md { display: none; }
 }
