@@ -1,178 +1,110 @@
 # Engineering Handoff
 
-> **Purpose.** This document is the bridge between development sessions. It is written so a
-> fresh session (with no prior conversation context) can resume work immediately and correctly.
-> Read this together with [`architecture.md`](architecture.md) (design rationale, ADRs, frozen
-> scope, Definition of Done, technical-debt register), [`taskbook.md`](taskbook.md) (the
-> issue-by-issue execution record), and [`v1-release-note.md`](v1-release-note.md) (the V1
-> closeout). [`roadmap.md`](roadmap.md) holds the strategic V1–V6 view.
+> **Purpose.** This document is the bridge between development sessions. A fresh
+> session (with no prior conversation context) should be able to read this and
+> resume work immediately and correctly. Read it together with
+> [`architecture.md`](architecture.md) (design rationale, ADRs, technical-debt
+> register), [`decisions.md`](decisions.md) (the full ADR log), and
+> [`roadmap.md`](roadmap.md) (the strategic version history and what's next).
 
-**Last updated:** V2 in progress — SQLite storage swap + price-history feature landed.
-**Branch state:** V1 merged into a protected `main`; V2 work on the active development branch.
+**Last updated:** v9 — swapwallet-style coin list, group-ready Telegram bot,
+Persian names, and a coin detail page.
+**Active branch:** `feature/swapwallet-coin-list`.
 
 ---
 
 ## 1. Project in one paragraph
 
-A Python 3.12+ terminal application that displays cryptocurrency prices (BTC, ETH, SOL) and
-football tournament data, built as a portfolio-grade demonstration of clean, layered architecture.
-Dependencies flow one direction only: Presentation → Service → Data, with Utilities and Config
-available to all layers. Persistence is JSON behind a repository interface (the seam for a future
-SQLite/PostgreSQL migration). External APIs sit behind adapter clients (an anti-corruption layer).
-The project is built issue by issue, each on its own feature branch, merged via PR into a protected
-`main` using Conventional Commits. The mentoring style is deliberate: concept → plan → code →
-review for every piece, readability over cleverness, and every compromise recorded as tracked debt.
+**MarketPulse** is a Python 3.12+, fully-async platform that serves live market
+prices — crypto, fiat, precious metals, and global stocks — through three
+channels that share one core: a **web dashboard** (FastAPI + Jinja2 + HTMX), a
+**Telegram bot** (python-telegram-bot), and an interactive **CLI** (`rich`).
+Dependencies flow one direction only: presentation → service → data, with utils
+and config available to all layers. External APIs sit behind adapter clients
+(an anti-corruption layer); persistence is SQLAlchemy 2.0 (async) behind a
+repository interface. Everything is offline-first: every external call is cached
+with a TTL, and a downed API serves the last good cache instead of crashing.
 
 ---
 
-## 2. Current project status — what is built, integrated, and verified
+## 2. Current status — what is built and verified
 
-**V1 is feature-complete.** The full four-layer architecture is implemented end to end: a user can
-run `crypto-wc`, view all coins / a single coin / the World Cup table, and the app caches every
-fetch, falls back to stale cache when an API is down, and never surfaces a raw traceback. All
-milestones below are merged.
+| Area | State |
+| --- | --- |
+| Web dashboard | ✅ swapwallet-style coin list: logos, market cap, volume, rank, sortable columns, 7-day sparklines, search/tabs, 30s HTMX polling |
+| Coin detail page | ✅ `/coin/{symbol}` — stats, TradingView chart (crypto) / sparkline fallback, stored history |
+| Telegram bot | ✅ `/market`, `/price` (+ `/p`), `/watchlist`, inline query, daily brief; **group-ready**: mention/reply/free-text answers, join-greeting, command menu |
+| Data sources | ✅ CoinGecko (global crypto), Wallex (Toman + metals + Persian names), ExchangeRate (EUR/GBP), Yahoo (stocks/indices) |
+| Storage | ✅ SQLAlchemy async (SQLite dev / PostgreSQL prod), TTL cache + offline fallback, price history |
+| Quality gates | ✅ `ruff check` + `ruff format --check` + `mypy --strict src` + `pytest` — **62 tests green** |
 
-| Milestone | Theme | Status |
-| --- | --- | --- |
-| M0 | Bootstrap / Scaffolding | ✅ Complete |
-| M1 | Foundations (exceptions, logging, settings) | ✅ Complete |
-| M2 | Domain Models (crypto, football) | ✅ Complete |
-| M3 | Storage Layer (repo interface + JSON impl) | ✅ Complete |
-| M4 | API Clients (base + CoinGecko + Football-Data) | ✅ Complete |
-| M5 | Service Layer (cache-then-fetch orchestration) | ✅ Complete |
-| M6 | Presentation (rich renderers + menu + wiring) | ✅ Complete |
-| M7 | Tests & Documentation | ✅ Complete |
-
-### V2 progress (current)
-- **Client Protocols** (`clients/protocols.py`) completed the DIP seam (TD-09/TD-10): services now
-  depend on `CryptoClientProtocol` / `FootballClientProtocol`, not concrete clients.
-- **Storage swapped to SQLite** (`storage/sqlite_repository.py`, ADR-011): a normalized schema
-  (`price_history`, `tournament`, `match`); the repository interface is now domain-specific
-  (`save_prices` / `load_latest_prices` / `get_price_history` / `save_tournament` /
-  `load_latest_tournament`) returning a generic `Cached[T]`. JSON repo retired.
-- **New feature:** per-coin price history (`CryptoService.get_price_history`, a renderer, menu
-  option 3). The DB lives at `data/app.db`.
-- **Verified:** 52 tests green; `ruff` + `mypy --strict` clean; app runs and creates the schema.
-- **Still pending in V2:** `float`→`Decimal` (TD-02), a real USD→Toman rate source (TD-04).
-
-### What physically exists in `src/app/`
-- `utils/exceptions.py` — `AppError` base with `ConfigError` / `StorageError` / `APIError`.
-- `utils/logger.py` — `setup_logging` (rotating file at DEBUG+, console at WARNING+) and
-  `get_logger`. Idempotent; lazy `%`-formatting; never logs secrets.
-- `config/settings.py` — frozen `Settings` with `from_env()`, derived directory `@property`s, and
-  `ensure_directories()`. Fields: `data_dir`, `cache_ttl_seconds`, `usd_to_toman_rate`,
-  `crypto_api_key`, `football_api_key`.
-- `models/crypto.py` — `Coin` enum (BTC/ETH/SOL carrying symbol + full name) and frozen `CryptoPrice`
-  with construction-time validation.
-- `models/football.py` — frozen `Team`, `Match`, `Tournament` and a `MatchStatus` enum
-  (SCHEDULED/LIVE/FINISHED). Invariant: scores exist iff the match has started. `Tournament.matches`
-  is a tuple (honest immutability).
-- `storage/base_repository.py` — abstract `BaseRepository` (`save`/`load`/`exists`/`delete`); the
-  migration seam (ADR-002).
-- `storage/json_repository.py` — `JSONRepository`: atomic writes (temp file + `os.replace` + fsync),
-  the `{fetched_at, schema_version, data}` envelope, key-safety regex, schema-version mismatch →
-  treated as missing, `OSError`/`json` → `StorageError`.
-- `clients/base_client.py` — `BaseAPIClient`: shared `requests.Session`, `(5s, 15s)` timeouts,
-  urllib3 `Retry` (backoff 0.5, statuses {429,500,502,503,504}, GET only), every `requests`
-  exception → `APIError`. Context-manager support.
-- `clients/crypto_client.py` — CoinGecko `/simple/price` adapter; maps to `CryptoPrice`; derives
-  Toman from the injected USD→Toman rate (ADR-005); optional demo-key header.
-- `clients/football_client.py` — Football-Data.org v4 `/competitions/WC/matches` adapter; status
-  map; defensive per-match parsing (a single bad match is skipped, a structural break raises);
-  point-of-use API-key validation.
-- `services/cache_policy.py` — shared `is_fresh(envelope, ttl)`; missing/unparseable `fetched_at`
-  is treated as stale (safe default). Extracted to keep both services from drifting.
-- `services/crypto_service.py` / `services/football_service.py` — cache-then-fetch with TTL and
-  offline fallback (ADR-006); client + repository injected; cache deserialization re-runs model
-  validation.
-- `presentation/renderers.py` — pure `rich` tables for prices and matches (colour-coded change and
-  status). No logic, no I/O.
-- `presentation/menu.py` — interactive loop dispatching to services; `ConfigError` shown as
-  "Unavailable", any other `AppError` shown as a friendly line.
-- `main.py` — composition root: settings → directories → logging → repository + clients → services
-  → menu. Degrades gracefully when `FOOTBALL_API_KEY` is absent via an unavailable-client stand-in
-  (TD-10).
-
-### Verification state (run from a Python 3.12 venv)
-- **Tests: 52 passing** (`tests/test_config.py` 8, `tests/test_models.py` 24,
-  `tests/test_storage.py` 9, `tests/test_services.py` 11). No test touches a live API or the real
-  filesystem outside a `tmp_path` fixture.
-  > Note: earlier docs cite "41 tests"; the suite has since grown to 52 (config tests added with the
-  > `usd_to_toman_rate` fix). The CHANGELOG / release note figure is stale on this point.
-- **`ruff check .`** — clean. **`mypy --strict src`** — clean (24 source files).
-- **End-to-end** — menu paths verified, including the offline-fallback path against a downed network.
+### Data-source merge (the heart of the service)
+`CryptoService.get_prices()` builds the crypto list from **CoinGecko** (rich
+data) and enriches each coin with a **Toman price from Wallex** (direct TMN pair,
+else converted via the USDT/Toman rate) and the **Persian name** from Wallex when
+available. Metals/fiat/bourse are appended separately. If CoinGecko is down it
+falls back to Wallex's own crypto entries; if every source fails it serves stale
+cache, and only errors when there is no cache at all.
 
 ---
 
-## 3. Known issues found at this handoff (read before continuing)
+## 3. How to run and test
 
-1. **Merge-conflict markers in `tests/test_services.py`.** A PR-#16 merge left raw
-   `<<<<<<< / ======= / >>>>>>>` markers in the `SETTINGS` literal, which was a *syntax error* —
-   the entire pytest suite failed to collect, despite the docs claiming green tests. Resolve by
-   keeping the `usd_to_toman_rate=90_000.0` line (the field is required on `Settings`).
-   **Lesson:** the V1 "all green" claim in the CHANGELOG and release note was not actually true on
-   `main`. Always run the suite; never trust the doc.
-2. **Stray artifacts.** `cryptowcreview.patch` (a committed review patch) and
-   `docs/developments/M0` (an empty 0-byte file beside `M0.md`) are accidental cruft — delete them.
-3. **TD-09 / TD-10 (client-side DIP seam incomplete).** Services and `main.py` depend on *concrete*
-   client classes; the test fakes need a `# type: ignore[arg-type]`, and `main.py` carries an ad-hoc
-   `_UnavailableFootballClient` stand-in. See §5.
+A Python **3.12** interpreter is required (the package refuses to install on
+3.11). See the README "اجرا و تست" section for the full walkthrough. Quick form:
 
----
+```bash
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 
-## 4. Conventions the next session must preserve
+# Quality gates (must all pass before a PR)
+ruff check . && ruff format --check . && mypy --strict src && pytest
 
-- **Mentoring loop:** for each issue — explain the concept and any new Python features, present an
-  implementation plan, give the complete file, then review against the checklist and note any
-  deliberate seams/debt. Readability over cleverness. One question at a time when clarifying.
-- **Exception translation at boundaries:** clients raise `APIError`; storage raises `StorageError`;
-  config raises `ConfigError`. Never let `requests` / `json` / `OSError` leak upward. Use `from exc`.
-- **Logging:** module-level `get_logger(__name__)`; configure only in `main.py`; lazy `%` formatting;
-  never log secrets.
-- **Config:** nothing reads `os.environ` except `settings.py`. Inject `Settings`; don't use globals.
-- **Money:** `float` in V1 (ADR-009, debt TD-02). **Coins are exactly BTC, ETH, SOL** — V1 frozen.
-- **Workflow:** one feature branch per issue, Conventional Commits, PR into protected `main`.
-- **Quality gates before any PR:** `ruff check .`, `ruff format .`, `mypy --strict src`, and
-  `pytest` — **all green**, run on Python 3.12 (the project requires `>=3.12`; a 3.11 interpreter
-  cannot even install it).
-- **Scope discipline:** build the seam, not the speculative feature. Record any compromise in the
-  debt register (`architecture.md` §8).
+# Run a channel
+crypto-wc-api    # web dashboard at http://127.0.0.1:8000
+crypto-wc-bot    # Telegram bot (needs TELEGRAM_BOT_TOKEN)
+crypto-wc        # interactive CLI
+```
+
+**Live data needs network egress** to `api.coingecko.com`, `api.wallex.ir`,
+`api.exchangerate-api.com`, and `query1.finance.yahoo.com`. Without it the app
+does not crash — it serves cache, or shows an empty state on a cold cache. In a
+Claude Code web session, set the environment's Network access to **Custom** and
+add those domains (see README).
 
 ---
 
-## 5. Precise next steps — where to pick up the knife
+## 4. Conventions to preserve
 
-V1 is shipped, so the next work is **V2** (or pre-V2 cleanup). Cheapest high-value items first:
-
-### Immediate cleanup
-- Delete `cryptowcreview.patch` and the empty `docs/developments/M0` file.
-- Reconcile the test-count figure (52, not 41) in `CHANGELOG.md` and `v1-release-note.md`.
-- Add a minimal CI workflow (ruff + mypy + pytest on push) — the single guard that would have caught
-  the conflict-marker bug before merge (currently deferred as TD-05).
-
-## 5. Precise next steps — where to pick up the knife
-
-V2's headline (SQLite + history) and the client DIP seam are done. Remaining, in order:
-
-1. **TD-02 — money to `Decimal`.** Migrate `CryptoPrice.price_usd` / `price_toman` from `float` to
-   `Decimal`. Touch points: the model, the CoinGecko client mapping, the SQLite row mappers (store
-   as TEXT to preserve precision, or REAL if approximate display is acceptable), and the renderers.
-   Update ADR-013 to "resolved (V2)".
-2. **TD-04 — a real USD→Toman rate source** behind a small adapter, replacing the static fallback.
-3. Then close V2: write `docs/v2-release-note.md`, bump the version, and reconcile the docs.
-
-After V2: **V3** (cache-strategy object / richer result types) per the roadmap.
-
-See [`roadmap.md`](roadmap.md) for the full V2–V6 arc and [`architecture.md`](architecture.md) §8.
+- **Layering:** presentation → service → data; never import upward. Clients raise
+  `APIError`, storage raises `StorageError`, config raises `ConfigError` — foreign
+  exceptions are translated at the boundary with `from exc`.
+- **Money is `Decimal`**; `last_updated` is timezone-aware UTC.
+- **Domain purity:** `CryptoPrice` is a frozen, slotted dataclass with
+  construction-time validation; bot search logic lives in pure, tested helpers
+  (`app/bot/search.py`).
+- **Config:** only `settings.py` reads the environment; inject `Settings`.
+- **Quality gates green** before every PR (ruff, ruff format, mypy --strict,
+  pytest), on Python 3.12.
+- **Git:** feature branch + Conventional Commits + PR.
 
 ---
 
-## 6. Quick-start checklist for the new session
+## 5. Where to pick up next
 
-1. Read `architecture.md`, then this file, then `taskbook.md` and `v1-release-note.md`.
-2. Confirm a **Python 3.12** environment: `python3.12 -m venv .venv && source .venv/bin/activate`,
-   then `pip install -e ".[dev]"`.
-3. Run the gates: `ruff check .`, `mypy --strict src`, `pytest` — expect all green (52 tests).
-4. Run the app: `crypto-wc` (banner/menu appears; the startup INFO line lands in `data/logs/app.log`,
-   not the console). Crypto works with no keys; football needs `FOOTBALL_API_KEY`.
-5. Pick up from §5. Branch per issue; commit with Conventional Commits; PR into protected `main`.
+- **Item 4 (deferred):** wire the dashboard "خرید/فروش" buttons to a real action
+  (currently a placeholder `alert`).
+- **Persian names on the web** currently rely on the coin existing on Wallex;
+  consider a small static alias map for popular coins not listed there.
+- **Price alerts / portfolio** (roadmap v10): per-user threshold subscriptions
+  pushed via the bot; a user model already exists for the watchlist.
+
+---
+
+## 6. Quick-start checklist for a new session
+
+1. Read `architecture.md`, then this file, then `roadmap.md`.
+2. Create a **Python 3.12** venv and `pip install -e ".[dev]"`.
+3. Run the gates — expect **62 tests** green.
+4. Launch a channel (`crypto-wc-api` / `crypto-wc-bot` / `crypto-wc`).
+5. Work on `feature/swapwallet-coin-list`; Conventional Commits; PR.

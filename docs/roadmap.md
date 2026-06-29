@@ -1,11 +1,14 @@
 # Project Roadmap
 
-> Long-term roadmap for the Crypto & World Cup Information Platform. The authoritative design
-> rationale lives in [`architecture.md`](architecture.md) and the granular issue list in
-> [`taskbook.md`](taskbook.md). This document gives the strategic view: where the project is
-> going, what is built versus planned, and what is learned at each stage.
+> Long-term roadmap for **MarketPulse** (originally the "Crypto & World Cup" CLI). The authoritative
+> design rationale lives in [`architecture.md`](architecture.md) and the historical V1 issue list in
+> [`taskbook.md`](taskbook.md). This document gives the strategic view: where the project is going,
+> what is built versus planned, and what is learned at each stage.
 >
-> **Status:** 
+> **Status:** V1–V9 are complete. The project has evolved from a JSON-backed learning CLI into a
+> fully-async, multi-channel market-data platform. Details below.
+>
+> **Legacy status notes (V1–V7):** 
 >**V1.0.0 is complete.** All milestones M0–M7 are implemented and merged into a
 > protected `main`. This roadmap was reconciled against a live repository audit at V1 closeout:
 > the codebase, the test suite (49 tests green on Python 3.12, after fixing a merge-conflict marker
@@ -23,16 +26,15 @@
 
 ## Project Vision
 
-A Python 3.12+ terminal application that delivers cryptocurrency prices (BTC, ETH, SOL) and
-football tournament data through a clean, layered architecture. The project exists for two
-reasons at once: to be a genuinely useful CLI tool, and to serve as a portfolio-grade
-demonstration of professional software engineering — Clean Architecture, SOLID (especially
-Dependency Inversion), separation of concerns, and test-driven growth.
+**MarketPulse** is a Python 3.12+, fully-async platform that delivers real-time prices for crypto,
+fiat, precious metals, and global stocks through three channels — a web dashboard, a Telegram bot,
+and a CLI — over one shared core. It began as a "Crypto & World Cup" learning CLI; the football
+half was retired in the V8 pivot, and the crypto half grew into a swapwallet-style market platform.
 
-The guiding architectural principle is **dependency inversion**: application logic never talks
-to JSON files or HTTP APIs directly; it depends on abstractions. This single decision is what
-allows the project to evolve through six planned versions — JSON to SQLite to PostgreSQL, CLI to
-REST API to web dashboard — by swapping implementations rather than rewriting the system.
+The guiding architectural principle is **dependency inversion**: application logic never talks to a
+database or an HTTP API directly; it depends on abstractions. This is what let the project evolve
+through nine versions — JSON → SQLite → SQLAlchemy/PostgreSQL, CLI → REST → web → bot, sync → async —
+by swapping implementations behind stable seams rather than rewriting the system.
 
 The project is built deliberately, one issue per feature branch, each merged via pull request
 into a protected `main`, following a concept -> plan -> code -> review loop for every component.
@@ -126,10 +128,10 @@ seams for future change, and recognize when a compromise is acceptable versus wh
   in-memory fakes, config) pass on Python 3.12; `ruff` and `mypy --strict` are clean.
 ---
 
-## Version Roadmap (V1-V6)
+## Version Roadmap (V1–V10)
 
-> V1 is the current build target (M0-M7). V2-V6 are **Planned** future versions; their scope is
-> directional and will be re-specified when each is reached.
+> V1–V9 are shipped; V10 is planned. The per-version detail below is kept as a historical record of
+> how the platform was built, one seam at a time.
 
 ### Version 1 - JSON-backed CLI ✅ *(shipped — V1.0.0)*
 - **Features:** crypto prices (USD, Toman, 24h change, timestamp) for BTC/ETH/SOL with refresh,
@@ -191,24 +193,30 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Technologies introduced:** PostgreSQL, SQLAlchemy, async/await (`httpx`), Docker, Docker Compose, GitHub Actions.
 - **Learning objectives:** ORMs, asynchronous programming, containerization, deployment, continuous integration.
 
-### Version 8 - MarketPulse Transformation ✅ *(in progress — 2026-06-19)*
-- **Goal:** Pivot from the "crypto + football" learning project to a production-ready market data platform called MarketPulse, inspired by swapwallet.app.
-- **Phase 1 (complete):** Codebase cleanup — fix broken imports, add missing `image_url` model field, rename API title, purge football references from docs/settings.
-- **Phase 2 (complete):** Iran Bourse dropped — TSETMC API returned empty data in testing; `IranBourseClient`, `IranBourseClientProtocol`, and `IRAN_BOURSE` asset type fully removed; all 35 tests green.
-- **Phase 3 (planned):** Richer market data — real gold/dollar free-market prices from a reliable Iranian source (navasan.ir or tgju.org); 24h change for fiat pairs.
-- **Phase 4 (planned):** UI feature upgrade — sparkline charts per asset (Chart.js Lightweight Charts), price alert system (user sets threshold → bot notification), portfolio tracker.
-- **Phase 5 (planned):** PWA + mobile readiness — service worker, manifest.json, responsive layout improvements.
-- **Technologies introduced:** TSETMC CDN API, Chart.js, PWA.
+### Version 8 - MarketPulse Transformation ✅ *(shipped — V8.0.0)*
+- **Goal:** Pivot from the "crypto + football" learning project to a market-data platform called
+  MarketPulse, inspired by swapwallet.app.
+- **Shipped:** codebase cleanup (broken imports, `image_url` model field, API title, football purge);
+  Iran Bourse dropped (TSETMC returned empty data); 35 tests green.
 
-### Version 9 - Price Alerts & Portfolio *(Planned)*
-- **Features:** per-user price alert subscriptions stored in DB; portfolio tracking (buy price, quantity, P&L); push to Telegram when threshold crossed.
-- **Architectural changes:** user model + notification job in bot layer.
-- **Learning objectives:** stateful chatbot flows, background job scheduling, user-specific data.
+### Version 9 - Swapwallet-style coin list & group-ready bot ✅ *(shipped — V9.0.0)*
+- **Features:** a CoinMarketCap-style web coin list (logos, market cap, 24h volume, rank, sortable
+  columns, 7-day sparklines); a per-coin detail page (`/coin/{symbol}`) with a TradingView chart and
+  stored history; Persian asset names; a Telegram bot optimized for **groups** (mention/reply/free-text
+  answers, join-greeting, command menu, `/p` alias, logo thumbnails in inline results).
+- **Architectural changes:** `CoinGeckoClient` behind a new `MarketDataClientProtocol`; the service
+  merges CoinGecko (global data) with Wallex (Toman + Persian names); `CryptoPrice` extended with
+  `market_cap`/`volume_24h`/`rank`/`image_url`/`sparkline`; a pure, tested `bot/search.py`.
+- **Technologies introduced:** CoinGecko Markets API, TradingView widgets, inline-SVG sparklines.
+- **Learning objectives:** multi-source data merging, graceful degradation, testable bot logic.
 
-### Version 10 - Web App & Mobile *(Planned)*
-- **Features:** Progressive Web App with offline support; React Native or Flutter mobile app consuming the same REST API.
-- **Architectural changes:** API versioning, authentication (JWT), CORS configuration.
-- **Learning objectives:** cross-platform development, API design for multiple clients.
+### Version 10 - Trade actions, alerts & mobile *(Planned)*
+- **Features:** wire the dashboard buy/sell buttons to a real action; per-user price-alert
+  subscriptions pushed via the bot; portfolio tracking (buy price, quantity, P&L); a PWA /
+  mobile-ready front end.
+- **Architectural changes:** notification job in the bot layer atop the existing user model;
+  authentication (JWT) and CORS for external clients.
+- **Learning objectives:** stateful chatbot flows, background scheduling, cross-platform delivery.
 
 ---
 

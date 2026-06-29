@@ -1,13 +1,12 @@
 # Architecture Decision Log
 
-> A log of the significant architectural and process decisions made on the Crypto & World Cup
-> Information Platform. Each entry records not just *what* was decided but *why*, and what it
-> commits the project to. This log complements the ADR section in
+> A log of the significant architectural and process decisions made on the project (originally the
+> "Crypto & World Cup" CLI, now **MarketPulse**). Each entry records not just *what* was decided but
+> *why*, and what it commits the project to. This log complements the ADR section in
 > [`architecture.md`](architecture.md); where IDs overlap they describe the same decision.
 >
-> **Verification note:** Compiled from the established project plan and development record, not a
-> live repository audit. All decisions below were agreed and applied during the M0–M1 sessions.
-> Dates are given as relative project phase rather than calendar dates, which were not tracked.
+> **Note:** ADR-001 through ADR-017 are the historical record through V7. ADR-018 onward cover the
+> MarketPulse era (V8+).
 
 ---
 
@@ -272,3 +271,32 @@
 - **Decision:** Adopt SQLAlchemy 2.0 ORM with asynchronous sessions. Support `SQLite` for local development and `asyncpg` (PostgreSQL) for production via Docker Compose.
 - **Rationale:** SQLAlchemy provides robust schema management and abstracts away dialect differences (SQLite vs Postgres). Docker ensures "it works on my machine" translates to production seamlessly.
 - **Consequences:** Replaced raw SQL queries with SQLAlchemy expressions. Added `Dockerfile`, `docker-compose.yml`, and updated `pyproject.toml` to include ORM dependencies.
+
+## ADR-018 — CoinGecko as the Global Crypto Source, Merged with Wallex
+- **Phase:** V9. **Status:** Implemented (`clients/coingecko_client.py`, `services/crypto_service.py`).
+- **Context:** A swapwallet-style coin list needs logos, market cap, 24h volume, rank, and a 7-day
+  sparkline. Wallex provides none of these but does provide native Toman prices and Persian names.
+- **Alternatives considered:** (a) Wallex only; (b) CoinGecko only; (c) merge both.
+- **Decision:** (c). `CoinGeckoClient` (behind a new `MarketDataClientProtocol`) owns the crypto
+  list; `CryptoService` enriches each coin with the Wallex Toman price (direct TMN pair, else
+  converted via the USDT/Toman rate) and the Wallex Persian name when available.
+- **Rationale:** Each provider does what it is best at, and the existing adapter + protocol seams
+  meant adding a source was a new file rather than a rewrite. Offline-first is preserved: CoinGecko
+  down → Wallex crypto entries; all sources down → stale cache; cold cache → `Err`.
+- **Consequences:** `CryptoPrice` gained `market_cap`, `volume_24h`, `rank`, `image_url`, and
+  `sparkline`, persisted via the repository for offline rendering. Corresponds to ADR-015 in
+  `architecture.md`.
+
+## ADR-019 — Group-Ready Telegram Bot with a Pure Search Core
+- **Phase:** V9. **Status:** Implemented (`bot/search.py`, `bot/handlers.py`, `bot/main.py`).
+- **Context:** The bot was private-chat oriented. In groups, Telegram's privacy mode limits a bot to
+  commands, @mentions, and replies to its own messages unless privacy is disabled.
+- **Alternatives considered:** (a) commands only; (b) require privacy off and read everything;
+  (c) answer mentions/replies in groups (privacy-on friendly) and free text in private chats.
+- **Decision:** (c). Query matching lives in a pure, unit-tested module (`bot/search.py`) with
+  Persian aliases and filler-word stripping, shared by the inline and in-chat handlers. A
+  `ChatMemberHandler` greets groups on join; the command menu is registered via `set_my_commands`.
+- **Rationale:** Keeping matching free of Telegram/network types makes group behavior testable
+  without a bot token, and one matcher powers both inline queries and chat replies.
+- **Consequences:** Free-text group answers depend on the BotFather privacy setting; documented in
+  `telegram-bot.md`. Corresponds to ADR-016 in `architecture.md`.

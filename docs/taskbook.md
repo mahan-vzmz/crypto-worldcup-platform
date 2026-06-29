@@ -1,11 +1,11 @@
-# Task Book & Project Roadmap
+# Task Book — V1 Historical Issue Board
 
-> Static project board for the Crypto & World Cup Information Platform. The
-> authoritative design rationale lives in [`architecture.md`](architecture.md);
-> this file is the execution roadmap.
+> **Historical record.** This is the original issue-by-issue board for the V1 build of the project
+> (then "Crypto & World Cup", now **MarketPulse**). It is preserved as an execution record; for the
+> current strategic view and later versions see [`roadmap.md`](roadmap.md), and for the live state
+> see [`handoff.md`](handoff.md).
 >
-> **Status: V1 COMPLETE.** All milestones M0–M7 are merged into a protected
-> `main`. Every issue below was delivered via a PR using Conventional Commits.
+> **Status: V1 COMPLETE.** All milestones M0–M7 were merged via PRs using Conventional Commits.
 
 **Difficulty legend:** ⚪ Trivial · 🟢 Easy · 🟡 Medium · 🔴 Hard
 
