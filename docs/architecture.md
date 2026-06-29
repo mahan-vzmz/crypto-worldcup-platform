@@ -1,23 +1,31 @@
-# Architecture & Governance — Crypto & World Cup Information Platform
+# Architecture & Governance — MarketPulse
 
-> **Status:** Version 1 (frozen). This document is the source of truth for the project's
-> architecture and the decisions behind it. Changes to any frozen decision require a new
-> ADR entry with justification — they are not revised casually mid-implementation.
+> **Status:** Living document. It is the source of truth for the project's architecture and the
+> decisions behind it. Load-bearing decisions are recorded as ADRs (below and in
+> [`decisions.md`](decisions.md)); they are revised by adding a new ADR, not by quietly rewriting
+> an old one.
+>
+> **History note.** The project began as a "Crypto & World Cup" learning CLI and evolved, version
+> by version, into **MarketPulse** — a multi-channel market-data platform. The early ADRs and the
+> technical-debt register below are kept as an honest record of that journey; sections 1, 3, 5, 6
+> and 9 describe the system **as it is today**.
 
 ---
 
 ## 1. Overview
 
-A Python terminal application that delivers real-time cryptocurrency prices (BTC, ETH, SOL)
-and football tournament data through a clean, layered architecture. Its primary purpose is to
-serve as a portfolio-grade demonstration of professional software engineering in Python —
-Clean Architecture, SOLID (especially Dependency Inversion), separation of concerns, and
-test-driven growth — while remaining a genuinely useful CLI tool.
+**MarketPulse** is a Python 3.12+, fully-async platform that delivers real-time prices for
+cryptocurrencies, fiat currencies, precious metals, and global stock indices through three
+presentation channels over one shared core: a **web dashboard** (FastAPI + Jinja2 + HTMX), a
+**Telegram bot** (python-telegram-bot), and an interactive **CLI** (`rich`).
 
-The central architectural bet is **dependency inversion**: application logic never talks to
-JSON files or HTTP APIs directly. It talks to *abstractions*. That single decision is what
-makes every planned future migration (JSON → SQLite → PostgreSQL, CLI → FastAPI → web) a
-matter of swapping implementations rather than rewriting the system.
+The central architectural bet is **dependency inversion**: application logic never talks to a
+database or an HTTP API directly — it talks to *abstractions*. That single decision is what let
+the project migrate (JSON → SQLite → SQLAlchemy/PostgreSQL, CLI → REST → web → bot, sync → async)
+by swapping implementations behind stable seams rather than rewriting the system.
+
+It is **offline-first**: every external call is cached with a TTL, and an unreachable API serves
+the last good cache instead of crashing.
 
 ---
 
@@ -26,21 +34,20 @@ matter of swapping implementations rather than rewriting the system.
 Dependencies flow in **one direction only**. A lower layer never imports an upper layer.
 
 ```
-[ User ] → [ Presentation ] → [ Service ] → [ Clients (external APIs) ]
-                                   ↓
-                             [ Storage (JSON) ]
-        ( Utilities & Configuration available to every layer )
+[ Web · Telegram bot · CLI ]   →   [ CryptoService ]   →   [ Clients (external APIs) ]
+                                          ↓
+                                  [ Repository (SQLAlchemy) ]
+            ( Utilities & Configuration available to every layer )
 ```
 
 | Layer | Location | Responsibility |
 | --- | --- | --- |
-| Presentation | `src/app/presentation/`, `main.py` | The only layer the user touches. Reads input, calls services, renders with `rich`. Contains **no** business logic and **no** I/O beyond the terminal. |
-| Service | `src/app/services/` | Orchestration and business rules (cache-then-fetch, staleness). Depends only on *interfaces* of the layers below, injected via constructors. |
-| Data | `src/app/clients/`, `src/app/storage/` | Two kinds of data access — external (API adapters) and internal (persistence) — each hidden behind its own abstraction. |
-| Utility | `src/app/utils/`, `src/app/config/` | Cross-cutting concerns: logging, exceptions, configuration. Imported by all layers. |
+| Presentation | `src/app/api/`, `src/app/bot/`, `src/app/presentation/` | The channels users touch — web, bot, CLI. Read input, call the service, render. **No** business logic. |
+| Service | `src/app/services/` | Orchestration and business rules (cache-then-fetch, multi-source merge, staleness). Depends only on *interfaces* of the layers below, injected via constructors. |
+| Data | `src/app/clients/`, `src/app/storage/` | External (API adapters) and internal (persistence) access, each hidden behind its own abstraction. |
+| Utility | `src/app/utils/`, `src/app/config/` | Cross-cutting concerns: logging, exceptions, configuration, the DI container. |
 
-**Interaction rule:** Presentation → Service → Data, never the reverse. This strict direction
-is what gives the system its testability and replaceability.
+**Interaction rule:** Presentation → Service → Data, never the reverse.
 
 ---
 
@@ -49,20 +56,22 @@ is what gives the system its testability and replaceability.
 ```
 crypto-worldcup-platform/
 ├── src/app/
-│   ├── main.py                 # Entry point: wires dependencies, starts CLI
-│   ├── config/settings.py      # Loads config from env + settings file
-│   ├── models/                 # crypto.py, football.py — typed dataclasses
-│   ├── services/               # crypto_service.py, football_service.py
-│   ├── clients/                # base_client.py + crypto/football adapters
-│   ├── storage/                # base_repository.py (interface) + json_repository.py
-│   ├── presentation/           # menu.py, renderers.py
-│   └── utils/                  # logger.py, exceptions.py
-├── tests/                      # mirrors the source tree
-├── data/                       # runtime files (gitignored; folders kept via .gitkeep)
-│   ├── cache/  settings/  history/  logs/
-├── docs/                       # this document and related governance artifacts
-├── assets/                     # static files (e.g., ASCII banners)
-├── .env.example  .gitignore  .python-version
+│   ├── main.py                 # CLI composition root
+│   ├── main_bot.py             # Telegram bot entry point
+│   ├── api/                    # FastAPI app, routers (dashboard, crypto), dependencies
+│   ├── bot/                    # handlers, inline, search, jobs, formatters
+│   ├── config/                 # settings.py (frozen Settings) + container.py (DI)
+│   ├── models/                 # crypto.py — CryptoPrice dataclass + AssetType enum
+│   ├── services/               # crypto_service.py, cache_strategy.py
+│   ├── clients/                # base_client + coingecko, crypto (Wallex), fiat, bourse + protocols
+│   ├── storage/                # base_repository (interface) + sqlalchemy_repository + models
+│   ├── presentation/           # rich CLI renderers + menu
+│   ├── templates/              # Jinja2: base, dashboard, coin_detail, partials/
+│   └── static/                 # css/style.css, js/main.js
+├── tests/                      # mirrors the source tree (no live API, no real DB)
+├── docs/                       # this document, decisions, roadmap, handoff, release notes
+├── data/                       # runtime files (gitignored): app.db, logs/
+├── Dockerfile  docker-compose.yml  .env.example  .python-version
 ├── pyproject.toml  README.md  LICENSE  CHANGELOG.md  CONTRIBUTING.md
 ```
 
@@ -188,39 +197,66 @@ Each ADR records the *reasoning* behind a load-bearing decision, not merely the 
 - **Final decision:** **Use existing `dataclass`es natively.**
 - **Rationale:** Simplifies the codebase, avoids redundant schema definitions, and proves that clean domain models don't need web-framework-specific wrappers just to be serialized.
 
-### Remaining open questions
-All three live external-provider questions — crypto endpoint terms (ADR-003), football competition
-selection (ADR-004), and Toman rate source (ADR-005) — are deliberately deferred to **Milestone M4**,
-each absorbed by the adapter pattern so they cannot destabilize earlier milestones. No open question
-blocks Milestone M1.
+### ADR-015 — CoinGecko as the global crypto source, merged with Wallex
+- **Context:** the swapwallet-style coin list needs logos, market cap, 24h volume, rank, and a 7-day
+  sparkline — none of which Wallex provides. Wallex, however, provides native Toman prices and
+  Persian names, which CoinGecko lacks.
+- **Options considered:** (a) Wallex only (no market cap / logos / sparklines); (b) CoinGecko only
+  (no Toman / Persian names); (c) **merge** — CoinGecko for the rich global list, Wallex for Toman
+  enrichment and localization.
+- **Final decision:** **(c)**. `CoinGeckoClient` (behind a new `MarketDataClientProtocol`) owns the
+  crypto list; `CryptoService` enriches each coin with the Wallex Toman price (direct TMN pair, else
+  converted via the USDT/Toman rate) and the Wallex Persian name when available.
+- **Rationale:** each provider does what it is best at; the adapter + protocol seams made adding a
+  second source a new file, not a rewrite. Offline-first is preserved: CoinGecko down → Wallex
+  crypto entries; all sources down → stale cache.
+- **Consequences:** `CryptoPrice` gained `market_cap`, `volume_24h`, `rank`, `image_url`, and
+  `sparkline`, all persisted for offline rendering.
+
+### ADR-016 — Group-ready Telegram bot with a pure search core
+- **Context:** the bot was private-chat oriented. Groups apply Telegram's privacy mode, so a bot
+  only sees commands, @mentions, and replies to its own messages unless privacy is disabled.
+- **Options considered:** (a) commands only; (b) require privacy mode off and read all messages;
+  (c) **respond to mentions/replies in groups (privacy-on friendly) and free text in private**,
+  with optional privacy-off for free-text group answers.
+- **Final decision:** **(c)**. Query matching lives in a pure, unit-tested module
+  (`app/bot/search.py`) with Persian aliases and filler-word stripping, shared by the inline and
+  in-chat handlers. A `ChatMemberHandler` greets groups on join; the command menu is registered via
+  `set_my_commands`.
+- **Rationale:** keeping the matching logic free of Telegram/network types makes the group behavior
+  testable without a bot token, and the same logic powers inline queries and chat replies.
+- **Consequences:** behavior depends on the BotFather privacy setting; documented in
+  [`telegram-bot.md`](telegram-bot.md).
+
+### Resolved open questions
+The original V1 open questions (crypto endpoint terms, football competition, Toman rate source) are
+all resolved: football was dropped in the MarketPulse pivot; crypto is CoinGecko + Wallex (ADR-015);
+Toman comes from native Wallex pairs.
 
 ---
 
 ## 5. Data Flow
 
-1. **User request** — a menu selection becomes a service method call.
-2. **API request** — the service asks a client; the client builds the request, sends it through `base_client` (timeout + retry), receives JSON, and maps it into model objects before returning.
-3. **Processing** — the client's mapping step turns raw external JSON into our typed models, where USD→Toman conversion and formatting happen, so the rest of the app never sees raw API shapes.
-4. **Storage** — after a successful fetch, the service hands models to the repository, which writes them atomically to JSON with a `fetched_at` timestamp for staleness checks.
-5. **Error handling** — failures raise a *custom* exception at the layer where they occur; the service logs and decides on a fallback (serve cache if available); the presentation layer catches anything reaching it and shows a friendly message — never a raw traceback.
+1. **Request** — a web route, bot handler, or CLI menu calls `CryptoService.get_prices()`.
+2. **Cache check** — the service loads the latest cached batch; if fresh (within `CACHE_TTL_SECONDS`) it is returned immediately, no network.
+3. **Multi-source fetch** — otherwise the service fetches from each client through `base_client` (async httpx, timeout + retry). Each client maps raw JSON into `CryptoPrice` models (the anti-corruption layer), so no API shape leaks upward.
+4. **Merge** — the crypto list comes from **CoinGecko** (logos, market cap, volume, rank, sparkline); each coin is enriched with a **Toman price** and **Persian name** from **Wallex**; fiat (EUR/GBP), metals, and stocks are appended.
+5. **Storage** — the merged batch is saved via the repository with a `fetched_at` timestamp; price history is append-only.
+6. **Fallback & errors** — failures raise a *custom* exception at their layer; the service degrades gracefully (CoinGecko down → Wallex crypto; all sources down → stale cache; cold cache → `Err`). Presentation never shows a raw traceback.
 
 ---
 
-## 6. Version 1 Frozen Scope
+## 6. Current Capabilities
 
-### In scope
-- **Crypto:** USD price, computed Toman price, 24h change %, last-update timestamp for **exactly** BTC, ETH, SOL; refresh-on-demand; view single coin; view all coins.
-- **Football:** completed matches, upcoming matches, scores, dates/times, team names, tournament progress for **one** competition.
-- **Storage:** JSON persistence of cached crypto data, cached football data, settings, user preferences, and request history — all behind the repository interface.
-- **Cross-cutting:** environment-based configuration, custom exception hierarchy, file + console logging, timeout + retry on external calls, TTL cache-then-fetch with offline fallback.
-- **Interface:** interactive `rich` CLI menu.
-- **Quality:** unit tests for models, storage, and services with external boundaries mocked; committed README, architecture doc, and changelog.
+### In scope (shipped)
+- **Markets:** a CoinMarketCap-style crypto coin list (USD + Toman price, 24h change, market cap, 24h volume, rank, 7-day sparkline) plus fiat (EUR/GBP), metals (XAUT/PAXG), and global stocks/indices.
+- **Web:** dashboard with search, market tabs, sortable columns, 30s HTMX polling, and a per-coin detail page (`/coin/{symbol}`) with a TradingView chart and stored history.
+- **Telegram bot:** `/market`, `/price` (+ `/p`), `/watchlist`, inline query, and a daily brief; group-ready (mention/reply/free-text answers, join-greeting, command menu).
+- **Storage:** SQLAlchemy 2.0 async (SQLite dev / PostgreSQL prod) behind the repository interface; TTL cache-then-fetch with offline fallback and price history.
+- **Cross-cutting:** env-based config, custom exception hierarchy, file + console logging, async timeout + retry, Docker + Docker Compose, GitHub Actions CI.
 
-### Out of scope
-Any database (SQLite/PostgreSQL) — V2/V7. Any web/HTTP API (FastAPI) — V4. Web dashboard — V5.
-Telegram Bot — V6. Auth, async, Docker, CI/CD — V7. Coins beyond BTC/ETH/SOL. Multiple tournaments or live in-match
-updates. `Decimal` money arithmetic. Pre-commit hooks. Concurrent/multi-user access. Streaming,
-notifications, alerts. Any feature not explicitly listed as in scope. **Scope is frozen.**
+### Out of scope (for now)
+Real trade execution (the dashboard buy/sell buttons are placeholders). Authentication / multi-user accounts. Price-alert subscriptions and portfolio tracking (roadmap). Native mobile app. Live in-market streaming.
 
 ---
 
@@ -290,16 +326,20 @@ and TD-10 were discovered during M5/M6 integration and added at V1 closeout.
 > the price-history capability.
 ---
 
-## 9. Future Roadmap
+## 9. Version History & Roadmap
 
-| Version | Goal | Key change | Technologies introduced |
-| --- | --- | --- | --- |
-| V2 | Durable, queryable storage | New repository implementation only | `sqlite3` |
-| V3 | Cleaner internals | Cache strategy object, richer error/result types | (design patterns) |
-| V4 | Expose services over HTTP | New presentation layer (routes) reusing existing services | FastAPI, Pydantic, Uvicorn |
-| V5 | Browser UI | Frontend consuming the V4 API | (web frontend) |
-| V6 | Telegram Bot Integration | New presentation channel for existing services | python-telegram-bot |
-| V7 | Production hardening | DB swap, async, containerization, CI/CD | PostgreSQL, SQLAlchemy, async I/O, Docker |
+| Version | Goal | Status |
+| --- | --- | --- |
+| V1 | JSON-backed CLI (crypto + football) | ✅ shipped |
+| V2 | Durable, queryable storage (SQLite, price history, `Decimal`, Wallex) | ✅ shipped |
+| V3 | Cleaner internals (`Result`, cache strategy, DI container) | ✅ shipped |
+| V4 | REST API over the existing services (FastAPI) | ✅ shipped |
+| V5 | Web dashboard (Jinja2 + HTMX), dynamic multi-asset domain | ✅ shipped |
+| V6 | Telegram bot channel | ✅ shipped |
+| V7 | Production hardening (SQLAlchemy, PostgreSQL, async, Docker, CI) | ✅ shipped |
+| V8 | MarketPulse pivot (drop football, multi-market focus) | ✅ shipped |
+| V9 | Swapwallet-style coin list (CoinGecko), group-ready bot, coin detail page, Persian names | ✅ shipped |
+| V10 (planned) | Real trade actions, price alerts, portfolio tracking, PWA/mobile | ⏳ planned |
 
-The through-line: because V1 separates presentation, service, and data behind interfaces, each
-future version replaces or adds **one** layer without rewriting the others.
+The through-line: because presentation, service, and data sit behind interfaces, each version
+replaced or added **one** seam without rewriting the others.

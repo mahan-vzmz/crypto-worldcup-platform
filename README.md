@@ -130,26 +130,62 @@ cp .env.example .env
 | `CACHE_TTL_SECONDS` | خیر | `300` | TTL کش به ثانیه |
 | `TELEGRAM_BOT_TOKEN` | بله* | — | برای اجرای بات الزامیست |
 | `CRYPTO_API_KEY` | خیر | — | کلید API Wallex (اختیاری، public endpoints رایگان هستند) |
+| `COINGECKO_API_KEY` | خیر | — | کلید Demo کوین‌گکو (اختیاری، سقف rate-limit را بالا می‌برد) |
 
 ---
 
-## اجرای محلی
+## اجرا و تست (گام‌به‌گام)
 
+> نیاز: **Python 3.12** (روی 3.11 حتی نصب نمی‌شود). برای داده‌ی زنده، egress
+> بخش «دسترسی شبکه» باید فعال باشد؛ در غیر این صورت کش/حالت خالی نمایش داده می‌شود.
+
+### ۰. آماده‌سازی محیط (یک‌بار)
 ```bash
-crypto-wc          # CLI تعاملی
-crypto-wc-api      # وب داشبورد (http://127.0.0.1:8000)
-crypto-wc-bot      # بات تلگرام (نیاز به TELEGRAM_BOT_TOKEN)
+python3.12 -m venv .venv
+source .venv/bin/activate        # ویندوز: .venv\Scripts\activate
+pip install -e ".[dev]"
+cp .env.example .env             # برای بات: TELEGRAM_BOT_TOKEN را پر کنید
 ```
 
----
-
-## توسعه و تست
-
+### ۱. اجرای تست‌ها و کنترل کیفیت
 ```bash
-ruff check .     # lint
-ruff format .    # format
-mypy src         # بررسی نوع (strict)
-pytest           # اجرای تست‌ها
+ruff check .            # lint — انتظار: All checks passed!
+ruff format --check .   # فرمت — انتظار: ... files already formatted
+mypy --strict src       # نوع — انتظار: Success: no issues found
+pytest -q               # تست — انتظار: 62 passed
+```
+
+### ۲. تست وب داشبورد
+```bash
+crypto-wc-api           # اجرا روی http://127.0.0.1:8000
+```
+سپس در مرورگر `http://127.0.0.1:8000` را باز کنید. باید ببینید:
+- لیست کوین با لوگو، قیمت دلاری/تومانی، تغییر ۲۴س، ارزش بازار، حجم و **نمودار ۷ روزه**
+- جستجو و تب‌های بازار، و مرتب‌سازی با کلیک روی سرستون‌ها
+- کلیک روی نام هر کوین → صفحه‌ی جزئیات `/coin/BTC` با نمودار TradingView و تاریخچه
+- بدون egress: پیام «داده‌ای یافت نشد» (طبیعی است) — مستندات API روی `http://127.0.0.1:8000/docs`
+
+تست سریع API بدون مرورگر:
+```bash
+curl -s http://127.0.0.1:8000/crypto/prices | head
+```
+
+### ۳. تست بات تلگرام
+```bash
+# ۱) از @BotFather توکن بگیرید و در .env بگذارید: TELEGRAM_BOT_TOKEN=...
+crypto-wc-bot           # انتظار در لاگ: "Bot is polling for updates..."
+```
+بعد در تلگرام به بات پیام دهید:
+- `/start` و `/help` → راهنما
+- `/price btc` یا `/p eth` → کارت قیمت با دکمه‌ی واچ‌لیست
+- `btc` یا «قیمت بیتکوین» (چت خصوصی) → پاسخ مستقیم
+- بات را به یک گروه اضافه کنید → پیام خوش‌آمد؛ سپس `@YourBot بیتکوین` یا ریپلای
+- inline: در هر چتی `@YourBot btc` را تایپ کنید
+> راهنمای کامل گروه و تنظیمات BotFather: [`docs/telegram-bot.md`](docs/telegram-bot.md)
+
+### ۴. اجرای CLI
+```bash
+crypto-wc               # منوی تعاملی در ترمینال
 ```
 
 ---
