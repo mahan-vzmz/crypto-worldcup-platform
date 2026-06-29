@@ -6,6 +6,38 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [9.0.0] — 2026-06-29 — Swapwallet-style coin list & group-ready bot
+
+### Added — Phase 1: Global coin list (CoinGecko)
+- **Added** `CoinGeckoClient` behind a new `MarketDataClientProtocol`: logos,
+  market cap, 24h volume, market-cap rank, and a 7-day sparkline in one request
+- **Extended** `CryptoPrice` and the storage layer with `market_cap`,
+  `volume_24h`, `rank`, `image_url`, and `sparkline` (persisted for offline use)
+- **Reworked** `CryptoService` to source the crypto list from CoinGecko and
+  enrich each coin with a Toman price from Wallex (direct pair or USDT-rate
+  conversion); metals/fiat/bourse and stale-cache fallback preserved
+- **Redesigned** the web coin list: rank column, sortable headers, compact
+  market cap/volume, inline SVG 7-day sparklines, responsive column hiding
+- **Added** `COINGECKO_API_KEY` setting (optional CoinGecko Demo key)
+
+### Added — Phase 2: Telegram bot optimized for groups
+- **Added** `app/bot/search.py` — pure, unit-tested query matching with Persian
+  aliases (بیتکوین→BTC, تتر→USDT, طلا→XAUT, …) and filler-word stripping
+- **Added** free-text price answers via @mention, reply-to-bot, or any private
+  message; stays silent on unrelated group chatter
+- **Added** auto-greeting with usage help when the bot is added to a group
+  (`ChatMemberHandler`), a context-aware `/help`, and the `/p` alias for `/price`
+- **Added** the slash-command menu via `set_my_commands` (private + group scope)
+- **Improved** inline query: shared search logic, coin-logo thumbnails, and a
+  graceful "no results" / "market unavailable" fallback
+- **Added** `docs/telegram-bot.md` — BotFather setup, privacy mode, and group usage
+
+### Tests
+- New tests for the CoinGecko client, the source-merge logic, the new model
+  fields, and the bot search helpers. **Result: 58 tests, 58 passed.**
+
+---
+
 ## [8.0.0] — 2026-06-19 — MarketPulse Transformation
 
 ### Changed — Phase 1: Codebase Cleanup
