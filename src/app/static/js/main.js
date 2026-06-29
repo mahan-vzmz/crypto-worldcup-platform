@@ -81,13 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
         animateCounters();
     }
 
-    // Market Filtering
+    // Market Filtering, sorting and sparklines
     setupFilters();
+    setupSorting();
+    renderSparklines();
 
-    // Re-setup filters after HTMX swap
+    // Re-apply everything after an HTMX swap (the table is replaced wholesale)
     document.body.addEventListener('htmx:afterSwap', function(event) {
         if (event.detail.target.id === 'crypto-table-container') {
             applyFilters();
+            applyCurrentSort();
+            renderSparklines();
         }
     });
 });
@@ -147,7 +151,7 @@ function applyFilters() {
         if (!noResultsMsg && tbody) {
             noResultsMsg = document.createElement('tr');
             noResultsMsg.id = 'no-results-msg';
-            noResultsMsg.innerHTML = `<td colspan="5" class="text-center text-muted" style="padding: 3rem 1rem;">هیچ نتیجه‌ای یافت نشد.</td>`;
+            noResultsMsg.innerHTML = `<td colspan="9" class="text-center text-muted" style="padding: 3rem 1rem;">هیچ نتیجه‌ای یافت نشد.</td>`;
             tbody.appendChild(noResultsMsg);
         } else if (noResultsMsg) {
             noResultsMsg.style.display = '';
@@ -155,4 +159,78 @@ function applyFilters() {
     } else if (noResultsMsg) {
         noResultsMsg.style.display = 'none';
     }
+}
+
+// --- Sortable columns ---
+let currentSort = { key: null, dir: 'desc' };
+
+function setupSorting() {
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const key = th.getAttribute('data-sort');
+            if (currentSort.key === key) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.key = key;
+                currentSort.dir = th.getAttribute('data-default-dir') || 'desc';
+            }
+            applyCurrentSort();
+        });
+    });
+}
+
+function applyCurrentSort() {
+    if (!currentSort.key) return;
+    const tbody = document.getElementById('market-tbody');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('.market-row'));
+    const key = currentSort.key;
+    const factor = currentSort.dir === 'asc' ? 1 : -1;
+
+    rows.sort((a, b) => {
+        const av = parseFloat(a.getAttribute('data-' + key)) || 0;
+        const bv = parseFloat(b.getAttribute('data-' + key)) || 0;
+        return (av - bv) * factor;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+
+    // Reflect sort state on the headers
+    document.querySelectorAll('th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.getAttribute('data-sort') === key) {
+            th.classList.add(currentSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    });
+}
+
+// --- 7-day sparklines (inline SVG) ---
+function renderSparklines() {
+    document.querySelectorAll('.sparkline-cell').forEach(cell => {
+        const raw = cell.getAttribute('data-spark') || '';
+        const pts = raw.split(',').map(s => parseFloat(s)).filter(n => !isNaN(n));
+
+        if (pts.length < 2) {
+            cell.innerHTML = '<span class="text-muted">—</span>';
+            return;
+        }
+
+        const w = 120, h = 36;
+        const min = Math.min(...pts), max = Math.max(...pts);
+        const range = (max - min) || 1;
+        const step = w / (pts.length - 1);
+
+        const d = pts.map((p, i) => {
+            const x = (i * step).toFixed(1);
+            const y = (h - ((p - min) / range) * h).toFixed(1);
+            return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+        }).join(' ');
+
+        const up = pts[pts.length - 1] >= pts[0];
+        cell.innerHTML =
+            `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">` +
+            `<path class="${up ? 'spark-up' : 'spark-down'}" d="${d}" fill="none" stroke-width="1.5" ` +
+            `stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    });
 }

@@ -64,5 +64,4 @@ def render_price_history(symbol: str, history: list[CryptoPrice]) -> Table:
         )
     return table
 
-
     return table

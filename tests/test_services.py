@@ -21,6 +21,7 @@ from app.utils.result import Err, Ok
 SETTINGS = Settings(
     data_dir=Path("dummy_dir"),
     crypto_api_key="dummy_crypto",
+    coingecko_api_key="dummy_coingecko",
     cache_ttl_seconds=300,
     telegram_bot_token="dummy_token",
     telegram_broadcast_chat_id="dummy_chat",
@@ -58,7 +59,9 @@ class FakeRepository(BaseRepository):
     async def get_price_history(self, symbol: str, *, limit: int) -> list[CryptoPrice]:
         return [p for p in self._history if p.symbol == symbol][:limit]
 
-    async def get_or_create_user(self, _telegram_id: int, _username: str | None, _first_name: str | None) -> None:
+    async def get_or_create_user(
+        self, _telegram_id: int, _username: str | None, _first_name: str | None
+    ) -> None:
         pass
 
     async def get_watchlist(self, _telegram_id: int) -> list[str]:
@@ -76,7 +79,9 @@ class FakeRepository(BaseRepository):
 
 
 class FakeCryptoClient:
-    def __init__(self, prices: list[CryptoPrice] | None = None, *, fail: bool = False) -> None:
+    def __init__(
+        self, prices: list[CryptoPrice] | None = None, *, fail: bool = False
+    ) -> None:
         self._prices = prices or []
         self._fail = fail
         self.fetch_calls = 0
@@ -88,17 +93,40 @@ class FakeCryptoClient:
         return self._prices
 
 
+class FakeMarketDataClient:
+    """Stands in for CoinGecko, the global crypto market-data source."""
+
+    def __init__(
+        self, prices: list[CryptoPrice] | None = None, *, fail: bool = False
+    ) -> None:
+        self._prices = prices or []
+        self._fail = fail
+        self.fetch_calls = 0
+
+    async def fetch_markets(self) -> list[CryptoPrice]:
+        self.fetch_calls += 1
+        if self._fail:
+            raise APIError("simulated market-data outage")
+        return self._prices
+
+
 class FakeFiatClient:
     async def fetch_rates(self, base_currency: str = "USD") -> dict[str, Decimal]:  # noqa: ARG002
         return {}
 
 
 class FakeBourseClient:
-    async def fetch_stocks(self, symbols: list[str]) -> dict[str, dict[str, str | Decimal]]:  # noqa: ARG002
+    async def fetch_stocks(
+        self, symbols: list[str]
+    ) -> dict[str, dict[str, str | Decimal]]:  # noqa: ARG002
         return {}
 
 
-def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoService:
+def build_service(
+    client: FakeCryptoClient,
+    repo: FakeRepository,
+    market_client: FakeMarketDataClient | None = None,
+) -> CryptoService:
     cache_strategy = TTLCacheStrategy(ttl_seconds=SETTINGS.cache_ttl_seconds)
     return CryptoService(
         client=client,
@@ -106,6 +134,7 @@ def build_service(client: FakeCryptoClient, repo: FakeRepository) -> CryptoServi
         bourse_client=FakeBourseClient(),
         repository=repo,
         cache_strategy=cache_strategy,
+        market_client=market_client or FakeMarketDataClient([a_price()]),
     )
 
 
@@ -157,7 +186,7 @@ class TestOfflineFallback:
         repo = FakeRepository()
         repo.seed_prices([a_price()], age_seconds=10_000)
         client = FakeCryptoClient(fail=True)
-        service = build_service(client, repo)
+        service = build_service(client, repo, FakeMarketDataClient(fail=True))
 
         result = await service.get_prices()
 
@@ -172,11 +201,70 @@ class TestCompleteFailure:
     async def test_api_failure_with_no_cache_reraises(self) -> None:
         repo = FakeRepository()
         client = FakeCryptoClient(fail=True)
-        service = build_service(client, repo)
+        service = build_service(client, repo, FakeMarketDataClient(fail=True))
 
         result = await service.get_prices()
         assert isinstance(result, Err)
         assert isinstance(result.error, APIError)
+
+
+def usdt_price(toman: str = "60000") -> CryptoPrice:
+    return CryptoPrice(
+        symbol="USDT",
+        name="Tether",
+        price_usd=Decimal("1.0"),
+        price_toman=Decimal(toman),
+        change_24h=Decimal("0"),
+        type=AssetType.FIAT,
+        last_updated=datetime.now(UTC),
+    )
+
+
+def gold_price() -> CryptoPrice:
+    return CryptoPrice(
+        symbol="XAUT",
+        name="Tether Gold",
+        price_usd=Decimal("2300"),
+        price_toman=Decimal("138000000"),
+        change_24h=Decimal("0.5"),
+        type=AssetType.METAL,
+        last_updated=datetime.now(UTC),
+    )
+
+
+class TestMarketMerge:
+    @pytest.mark.asyncio
+    async def test_coingecko_crypto_enriched_with_wallex_toman(self) -> None:
+        repo = FakeRepository()
+        # Wallex provides USDT rate + a metal, but no BTC TMN pair.
+        wallex = FakeCryptoClient([usdt_price("60000"), gold_price()])
+        # CoinGecko provides the BTC crypto entry (Toman 0, to be enriched).
+        market = FakeMarketDataClient([a_price()])
+        service = build_service(wallex, repo, market)
+
+        result = await service.get_prices()
+
+        assert isinstance(result, Ok)
+        by_symbol = {p.symbol: p for p in result.value}
+        # Crypto list comes from CoinGecko, kept once.
+        assert "BTC" in by_symbol
+        # BTC had no local pair, so Toman is converted via the USDT rate.
+        assert by_symbol["BTC"].price_toman == Decimal("60000") * Decimal("65000.0")
+        # Non-crypto Wallex entries (USDT, metals) are preserved.
+        assert by_symbol["USDT"].type is AssetType.FIAT
+        assert by_symbol["XAUT"].type is AssetType.METAL
+
+    @pytest.mark.asyncio
+    async def test_coingecko_down_falls_back_to_wallex_crypto(self) -> None:
+        repo = FakeRepository()
+        wallex = FakeCryptoClient([a_price()])  # BTC crypto from Wallex
+        market = FakeMarketDataClient(fail=True)
+        service = build_service(wallex, repo, market)
+
+        result = await service.get_prices()
+
+        assert isinstance(result, Ok)
+        assert [p.symbol for p in result.value] == ["BTC"]
 
 
 class TestPriceHistory:

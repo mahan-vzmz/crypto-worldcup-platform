@@ -36,6 +36,13 @@ class CryptoPrice:
     type: AssetType
     last_updated: datetime
     image_url: str = ""
+    # Global market data (sourced from CoinGecko for crypto; 0 when unknown).
+    market_cap: Decimal = Decimal("0")
+    volume_24h: Decimal = Decimal("0")
+    rank: int = 0
+    # Last-7-days price points for a mini chart. A tuple keeps the model hashable
+    # and consistent with its frozen, immutable design.
+    sparkline: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.symbol:
@@ -46,5 +53,9 @@ class CryptoPrice:
             raise ValueError(
                 f"price_toman must be non-negative, got {self.price_toman}"
             )
+        if self.market_cap < 0:
+            raise ValueError(f"market_cap must be non-negative, got {self.market_cap}")
+        if self.volume_24h < 0:
+            raise ValueError(f"volume_24h must be non-negative, got {self.volume_24h}")
         if self.last_updated.tzinfo is None:
             raise ValueError("last_updated must be timezone-aware (use UTC)")

@@ -681,10 +681,66 @@ tr:hover .trade-actions {
 .text-center { text-align: center; }
 
 /* Responsive */
+/* --- Coin list: rank, sortable headers, sparkline --- */
+.rank-cell {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  width: 40px;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+th.sortable:hover {
+  color: var(--accent-primary);
+}
+
+th.sortable::after {
+  content: "\f0dc"; /* fa-sort */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.7rem;
+  margin-right: 0.4rem;
+  opacity: 0.35;
+}
+
+th.sortable.sort-asc::after {
+  content: "\f0de"; /* fa-sort-up */
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
+th.sortable.sort-desc::after {
+  content: "\f0dd"; /* fa-sort-down */
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
+.sparkline-cell {
+  width: 130px;
+}
+
+.sparkline-cell svg.spark {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.sparkline-cell .spark-up { stroke: var(--success); }
+.sparkline-cell .spark-down { stroke: var(--danger); }
+
+@media (max-width: 1024px) {
+  .hide-md { display: none; }
+}
+
 @media (max-width: 768px) {
   .header-nav { display: none; }
   .hero h2 { font-size: 2rem; }
   .stats-row { flex-direction: column; gap: 2rem; margin-top: 2rem; padding-top: 2rem; }
   .footer-grid { grid-template-columns: 1fr; gap: 2rem; }
   .trade-actions { opacity: 1; }
+  .hide-sm { display: none; }
 }

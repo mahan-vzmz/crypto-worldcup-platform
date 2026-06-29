@@ -44,9 +44,7 @@ class Menu:
         """Main loop. Returns when the user chooses to quit."""
         self._console.print(Panel(_MENU, border_style="magenta", expand=False))
         while True:
-            choice = Prompt.ask(
-                "Select", choices=["1", "2", "3", "q"], default="q"
-            )
+            choice = Prompt.ask("Select", choices=["1", "2", "3", "q"], default="q")
             if choice == "q":
                 self._console.print("[dim]Goodbye.[/dim]")
                 return

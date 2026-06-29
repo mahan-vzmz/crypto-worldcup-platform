@@ -69,3 +69,30 @@ class TestCryptoPrice:
     def test_image_url_can_be_set(self) -> None:
         price = make_price(image_url="https://example.com/btc.png")
         assert price.image_url == "https://example.com/btc.png"
+
+    def test_market_data_fields_default_to_zero_and_empty(self) -> None:
+        price = make_price()
+        assert price.market_cap == Decimal("0")
+        assert price.volume_24h == Decimal("0")
+        assert price.rank == 0
+        assert price.sparkline == ()
+
+    def test_market_data_fields_can_be_set(self) -> None:
+        price = make_price(
+            market_cap=Decimal("1280000000000"),
+            volume_24h=Decimal("35000000000"),
+            rank=1,
+            sparkline=(64000.0, 65000.0),
+        )
+        assert price.market_cap == Decimal("1280000000000")
+        assert price.volume_24h == Decimal("35000000000")
+        assert price.rank == 1
+        assert price.sparkline == (64000.0, 65000.0)
+
+    def test_negative_market_cap_raises(self) -> None:
+        with pytest.raises(ValueError):
+            make_price(market_cap=Decimal("-1.0"))
+
+    def test_negative_volume_raises(self) -> None:
+        with pytest.raises(ValueError):
+            make_price(volume_24h=Decimal("-1.0"))

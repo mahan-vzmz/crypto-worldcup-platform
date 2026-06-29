@@ -73,6 +73,7 @@ class TestDirectories:
             data_dir=tmp_path / "data",
             cache_ttl_seconds=300,
             crypto_api_key="",
+            coingecko_api_key="",
             telegram_bot_token="",
             telegram_broadcast_chat_id="",
         )

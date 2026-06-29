@@ -14,6 +14,23 @@ router = APIRouter(tags=["Dashboard"])
 templates = Jinja2Templates(directory="src/app/templates")
 
 
+def _compact_number(value: object) -> str:
+    """Format a large number compactly (e.g. 1.28T, 35.0B, 4.5M)."""
+    try:
+        n = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return "—"
+    if n <= 0:
+        return "—"
+    for suffix, threshold in (("T", 1e12), ("B", 1e9), ("M", 1e6), ("K", 1e3)):
+        if n >= threshold:
+            return f"{n / threshold:.2f}{suffix}"
+    return f"{n:,.0f}"
+
+
+templates.env.filters["compact"] = _compact_number
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_index(
     request: Request,
