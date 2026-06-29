@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import delete, desc, func, select
+from sqlalchemy import ColumnDefault, delete, desc, func, inspect, select, text
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.sql.schema import Column
 
 from app.models.crypto import AssetType, CryptoPrice
 from app.storage.base_repository import BaseRepository, Cached
@@ -31,8 +33,53 @@ class SQLAlchemyRepository(BaseRepository):
         try:
             async with self._engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+                # Lightweight migration: add columns introduced after a table was
+                # first created (no Alembic). Idempotent — runs every startup.
+                await conn.run_sync(self._add_missing_columns)
         except Exception as exc:
             raise StorageError("failed to initialise the database schema") from exc
+
+    @staticmethod
+    def _column_default_literal(column: Column[object]) -> str | None:
+        """Render a column's Python default as a SQL literal, if it is scalar.
+
+        Existing rows need a value when a NOT NULL column is added, so the
+        ALTER must carry the same default the model declares.
+        """
+        default = column.default
+        if not isinstance(default, ColumnDefault) or not default.is_scalar:
+            return None
+        value = default.arg
+        if isinstance(value, str):
+            escaped = value.replace("'", "''")
+            return f"'{escaped}'"
+        if isinstance(value, bool):
+            return "1" if value else "0"
+        return str(value)
+
+    def _add_missing_columns(self, connection: Connection) -> None:
+        """Add any model columns missing from existing tables (ADD COLUMN)."""
+        inspector = inspect(connection)
+        for table in Base.metadata.tables.values():
+            if not inspector.has_table(table.name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                col_type = column.type.compile(dialect=connection.dialect)
+                ddl = (
+                    f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {col_type}'
+                )
+                default_literal = self._column_default_literal(column)
+                if default_literal is not None:
+                    ddl += f" DEFAULT {default_literal}"
+                connection.execute(text(ddl))
+                logger.info(
+                    "schema migration: added column %s.%s",
+                    table.name,
+                    column.name,
+                )
 
     @asynccontextmanager
     async def _session(self) -> AsyncGenerator[AsyncSession, None]:
