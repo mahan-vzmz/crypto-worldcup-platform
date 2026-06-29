@@ -6,8 +6,43 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from app.bot.formatters import format_prices
+from app.bot.search import clean_query, match_prices
 from app.config.container import Container
 from app.utils.result import Ok
+
+#: Shown when the bot is added to a group, or on /help inside a group.
+GROUP_HELP_TEXT = (
+    "👋 <b>ربات مارکت پالس</b> به جمع شما اضافه شد!\n\n"
+    "در گروه می‌توانید از این روش‌ها قیمت بگیرید:\n"
+    "• دستور <code>/price btc</code> یا مخفف <code>/p eth</code>\n"
+    "• من را منشن کنید: <code>@{username} بیتکوین</code>\n"
+    "• به پیام من ریپلای کنید و نماد را بنویسید\n"
+    "• <code>/market</code> برای نمای کلی بازار\n\n"
+    "<i>برای کار روان‌تر در گروه، Privacy Mode ربات را در BotFather خاموش "
+    "نگه دارید تا به متن آزاد هم پاسخ دهم.</i>"
+)
+
+
+def _build_watch_keyboard(symbol: str, in_watchlist: bool) -> InlineKeyboardMarkup:
+    """Build the refresh + watchlist toggle keyboard for a single asset."""
+    keyboard = [[InlineKeyboardButton("🔄 بروزرسانی", callback_data=f"price_{symbol}")]]
+    if in_watchlist:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "❌ حذف از واچ‌لیست", callback_data=f"watch_remove_{symbol}"
+                )
+            ]
+        )
+    else:
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    "⭐ افزودن به واچ‌لیست", callback_data=f"watch_add_{symbol}"
+                )
+            ]
+        )
+    return InlineKeyboardMarkup(keyboard)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -18,10 +53,24 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "و بورس را به شما نشان دهم.\n\n"
         "/market - مشاهده قیمت‌های بازار\n"
         "/price &lt;نماد&gt; - دریافت قیمت یک دارایی خاص\n"
-        "/watchlist - مشاهده واچ‌لیست شخصی شما\n"
+        "/watchlist - مشاهده واچ‌لیست شخصی شما\n\n"
+        "💡 می‌توانید مرا به گروه خود اضافه کنید و با منشن یا "
+        "دستور <code>/price</code> قیمت بگیرید."
     )
     if update.message:
         await update.message.reply_html(welcome_text)
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show context-aware help (group vs. private)."""
+    msg = update.message
+    if not msg:
+        return
+    if msg.chat.type in ("group", "supergroup"):
+        username = context.bot.username or "MarketPulseBot"
+        await msg.reply_html(GROUP_HELP_TEXT.format(username=username))
+    else:
+        await start_command(update, context)
 
 
 async def market_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -142,28 +191,7 @@ async def price_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         watchlist = await repo.get_watchlist(user.id)
 
     msg = format_prices([price], f"قیمت {symbol}")
-
-    keyboard = [
-        [InlineKeyboardButton("🔄 بروزرسانی", callback_data=f"price_{symbol}")],
-    ]
-    if symbol in watchlist:
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    "❌ حذف از واچ‌لیست", callback_data=f"watch_remove_{symbol}"
-                )
-            ]
-        )
-    else:
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    "⭐ افزودن به واچ‌لیست", callback_data=f"watch_add_{symbol}"
-                )
-            ]
-        )
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = _build_watch_keyboard(symbol, symbol in watchlist)
 
     if update.message:
         await update.message.reply_html(msg, reply_markup=reply_markup)
@@ -356,3 +384,90 @@ async def watch_refresh_callback(
     except BadRequest as e:
         if "Message is not modified" not in str(e):
             raise
+
+
+def _bot_is_addressed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """In a group, decide whether a plain text message is meant for the bot.
+
+    True when the bot is @mentioned or the message replies to one of the bot's
+    own messages. In private chats every message is for the bot.
+    """
+    msg = update.message
+    if not msg:
+        return False
+    if msg.chat.type not in ("group", "supergroup"):
+        return True
+
+    username = (context.bot.username or "").lower()
+    text = (msg.text or "").lower()
+    mentioned = bool(username) and f"@{username}" in text
+
+    replied_to_bot = bool(
+        msg.reply_to_message
+        and msg.reply_to_message.from_user
+        and msg.reply_to_message.from_user.id == context.bot.id
+    )
+    return mentioned or replied_to_bot
+
+
+async def text_query_handler(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Answer free-text price queries via mention, reply, or private message.
+
+    Examples: ``@MarketPulseBot بیتکوین``, a reply with ``eth``, or ``btc`` in
+    a private chat. Stays silent on unrelated group chatter.
+    """
+    msg = update.message
+    if not msg or not msg.text:
+        return
+    if not _bot_is_addressed(update, context):
+        return
+
+    is_group = msg.chat.type in ("group", "supergroup")
+    query_text = clean_query(msg.text, context.bot.username)
+
+    container = cast(Container, context.bot_data.get("container"))
+    res = await container.crypto_service.get_prices()
+    if not isinstance(res, Ok):
+        await msg.reply_text("⚠️ دریافت اطلاعات بازار با خطا مواجه شد.")
+        return
+
+    matches = match_prices(res.value, query_text, limit=5)
+    if not matches:
+        # Avoid noise in groups; gently guide users in private chats.
+        if not is_group:
+            await msg.reply_text(
+                "نمادی پیدا نشد. مثال: <code>btc</code> یا «قیمت اتریوم».",
+                parse_mode="HTML",
+            )
+        return
+
+    if len(matches) == 1:
+        price = matches[0]
+        text = format_prices([price], f"قیمت {price.symbol}")
+        await msg.reply_html(
+            text, reply_markup=_build_watch_keyboard(price.symbol, False)
+        )
+    else:
+        await msg.reply_html(format_prices(matches, "نتایج جستجو"))
+
+
+async def on_added_to_chat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Greet a group with usage instructions when the bot joins it."""
+    member_update = update.my_chat_member
+    if not member_update:
+        return
+
+    new_status = member_update.new_chat_member.status
+    if member_update.new_chat_member.user.id != context.bot.id:
+        return
+    if new_status not in ("member", "administrator"):
+        return
+
+    username = context.bot.username or "MarketPulseBot"
+    await context.bot.send_message(
+        chat_id=member_update.chat.id,
+        text=GROUP_HELP_TEXT.format(username=username),
+        parse_mode="HTML",
+    )
