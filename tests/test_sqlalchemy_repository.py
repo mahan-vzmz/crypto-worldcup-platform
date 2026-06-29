@@ -6,6 +6,8 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.models.crypto import AssetType, CryptoPrice
 from app.storage.sqlalchemy_repository import SQLAlchemyRepository
@@ -100,6 +102,65 @@ class TestPriceHistory:
         history = await repo.get_price_history("BTC", limit=0)
 
         assert history == []
+
+
+class TestSchemaMigration:
+    @pytest.mark.asyncio
+    async def test_initialize_adds_missing_columns_to_legacy_table(
+        self, tmp_path: Path
+    ) -> None:
+        db_url = f"sqlite+aiosqlite:///{(tmp_path / 'legacy.db').as_posix()}"
+
+        # Build a pre-v9 price_history table that lacks the new columns,
+        # with one existing row.
+        engine = create_async_engine(db_url)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "CREATE TABLE price_history ("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, symbol VARCHAR, "
+                    "name VARCHAR, price_usd FLOAT, price_toman FLOAT, "
+                    "change_24h FLOAT, asset_type VARCHAR, "
+                    "last_updated DATETIME, fetched_at DATETIME)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO price_history (symbol, name, price_usd, "
+                    "price_toman, change_24h, asset_type, last_updated, "
+                    "fetched_at) VALUES ('BTC', 'Bitcoin', 65000, 4000000000, "
+                    "1.5, 'crypto', '2026-06-21 16:00:00.000000', "
+                    "'2026-06-21 16:00:00.000000')"
+                )
+            )
+        await engine.dispose()
+
+        # Initializing the repository should migrate the table in place.
+        repo = SQLAlchemyRepository(database_url=db_url)
+        await repo.initialize()
+
+        # The legacy row is now readable, with defaults for the new columns.
+        cached = await repo.load_latest_prices()
+        assert cached is not None
+        assert cached.data[0].symbol == "BTC"
+        assert cached.data[0].image_url == ""
+        assert cached.data[0].sparkline == ()
+
+        # And new writes carrying the new columns round-trip correctly.
+        await repo.save_prices([a_price("ETH", Decimal("3000.0"))])
+        latest = await repo.load_latest_prices()
+        assert latest is not None
+        assert latest.data[0].symbol == "ETH"
+
+    @pytest.mark.asyncio
+    async def test_initialize_is_idempotent(self, tmp_path: Path) -> None:
+        repo = await make_repo(tmp_path)
+        # Running initialize again must not fail or duplicate columns.
+        await repo.initialize()
+        await repo.save_prices([a_price("BTC")])
+        cached = await repo.load_latest_prices()
+        assert cached is not None
+        assert cached.data[0].symbol == "BTC"
 
 
 class TestPersistence:

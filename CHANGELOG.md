@@ -42,10 +42,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Documented** the network egress domains required for live data in the
   README (CoinGecko, Wallex, ExchangeRate, Yahoo)
 
+### Fixed
+- **Auto-migrate the SQLite/Postgres schema on startup**: `initialize()` now adds
+  any model columns missing from an existing table (lightweight `ADD COLUMN`, no
+  Alembic). Fixes `OperationalError: no such column: price_history.image_url`
+  when running against a database created before the v9 columns existed.
+
 ### Tests
 - New tests for the CoinGecko client, the source-merge logic (incl. Persian
-  name override), the new model fields, the bot search helpers, and the web
-  dashboard/detail routes. **Result: 62 tests, 62 passed.**
+  name override), the new model fields, the bot search helpers, the web
+  dashboard/detail routes, and the startup schema migration.
+  **Result: 64 tests, 64 passed.**
 
 ---
 
