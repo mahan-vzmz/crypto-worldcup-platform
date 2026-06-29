@@ -255,6 +255,31 @@ class TestMarketMerge:
         assert by_symbol["XAUT"].type is AssetType.METAL
 
     @pytest.mark.asyncio
+    async def test_wallex_persian_name_overrides_coingecko(self) -> None:
+        repo = FakeRepository()
+        # Wallex lists BTC with a Persian name; CoinGecko uses English.
+        wallex_btc = CryptoPrice(
+            symbol="BTC",
+            name="بیت‌کوین",
+            price_usd=Decimal("65000.0"),
+            price_toman=Decimal("4000000000"),
+            change_24h=Decimal("1.0"),
+            type=AssetType.CRYPTO,
+            last_updated=datetime.now(UTC),
+        )
+        wallex = FakeCryptoClient([usdt_price("60000"), wallex_btc])
+        market = FakeMarketDataClient([a_price()])  # name="Bitcoin"
+        service = build_service(wallex, repo, market)
+
+        result = await service.get_prices()
+
+        assert isinstance(result, Ok)
+        by_symbol = {p.symbol: p for p in result.value}
+        assert by_symbol["BTC"].name == "بیت‌کوین"
+        # And it still carries CoinGecko's rich data path (single BTC entry).
+        assert sum(1 for p in result.value if p.symbol == "BTC") == 1
+
+    @pytest.mark.asyncio
     async def test_coingecko_down_falls_back_to_wallex_crypto(self) -> None:
         repo = FakeRepository()
         wallex = FakeCryptoClient([a_price()])  # BTC crypto from Wallex

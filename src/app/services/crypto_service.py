@@ -67,8 +67,10 @@ class CryptoService:
 
         prices: list[CryptoPrice] = []
 
-        # 1. Local exchange (Wallex): Toman prices, USDT rate, metals, fiat.
+        # 1. Local exchange (Wallex): Toman prices, USDT rate, metals, fiat,
+        #    and Persian asset names to localize the CoinGecko list.
         toman_by_symbol: dict[str, Decimal] = {}
+        fa_name_by_symbol: dict[str, str] = {}
         usd_price_toman: Decimal | None = None
         wallex_prices: list[CryptoPrice] | None = None
         try:
@@ -79,6 +81,8 @@ class CryptoService:
         if wallex_prices is not None:
             for p in wallex_prices:
                 toman_by_symbol[p.symbol] = p.price_toman
+                if p.name:
+                    fa_name_by_symbol[p.symbol] = p.name
                 if p.symbol == "USDT":
                     usd_price_toman = p.price_toman
                 # Keep non-crypto entries; CoinGecko owns the crypto list.
@@ -98,8 +102,14 @@ class CryptoService:
                 if toman is None and usd_price_toman is not None:
                     # No local market for this coin: convert via the USDT rate.
                     toman = usd_price_toman * c.price_usd
+                # Prefer the Persian name from Wallex when available.
+                name = fa_name_by_symbol.get(c.symbol, c.name)
                 prices.append(
-                    replace(c, price_toman=toman if toman is not None else Decimal("0"))
+                    replace(
+                        c,
+                        name=name,
+                        price_toman=toman if toman is not None else Decimal("0"),
+                    )
                 )
         elif wallex_prices is not None:
             # CoinGecko down: keep Wallex's own crypto entries so the list still

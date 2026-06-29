@@ -32,9 +32,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   graceful "no results" / "market unavailable" fallback
 - **Added** `docs/telegram-bot.md` — BotFather setup, privacy mode, and group usage
 
+### Added — Phase 3: Persian names, coin detail page, live-data docs
+- **Added** Persian asset names to the web coin list: the service now localizes
+  each CoinGecko coin with the Wallex Persian name when available
+- **Added** a coin detail page (`/coin/{symbol}`): header card, market-cap /
+  volume / rank stats, an interactive TradingView chart for crypto (with a
+  7-day sparkline fallback), and recent observations from stored history
+- **Made** asset names in the list clickable, linking to their detail page
+- **Documented** the network egress domains required for live data in the
+  README (CoinGecko, Wallex, ExchangeRate, Yahoo)
+
 ### Tests
-- New tests for the CoinGecko client, the source-merge logic, the new model
-  fields, and the bot search helpers. **Result: 58 tests, 58 passed.**
+- New tests for the CoinGecko client, the source-merge logic (incl. Persian
+  name override), the new model fields, the bot search helpers, and the web
+  dashboard/detail routes. **Result: 62 tests, 62 passed.**
 
 ---
 

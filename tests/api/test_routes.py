@@ -102,3 +102,25 @@ def test_invalid_coin(client: TestClient) -> None:
     response = client.get("/crypto/prices/INVALID")
     assert response.status_code == 404
     assert "not supported" in response.json()["detail"]
+
+
+def test_dashboard_index_renders(client: TestClient) -> None:
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "Bitcoin" in response.text
+    # The coin name links to its detail page.
+    assert "/coin/BTC" in response.text
+
+
+def test_coin_detail_renders(client: TestClient) -> None:
+    response = client.get("/coin/ETH")
+    assert response.status_code == 200
+    assert "Ethereum" in response.text
+    # Detail page shows the stats labels.
+    assert "ارزش بازار" in response.text
+
+
+def test_coin_detail_unknown_symbol(client: TestClient) -> None:
+    response = client.get("/coin/NOPE")
+    assert response.status_code == 200
+    assert "یافت نشد" in response.text

@@ -216,7 +216,8 @@ function renderSparklines() {
             return;
         }
 
-        const w = 120, h = 36;
+        const w = parseInt(cell.getAttribute('data-width'), 10) || 120;
+        const h = parseInt(cell.getAttribute('data-height'), 10) || 36;
         const min = Math.min(...pts), max = Math.max(...pts);
         const range = (max - min) || 1;
         const step = w / (pts.length - 1);

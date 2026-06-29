@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ symbol }} | مارکت پالس{% endblock %}
+
+{% block content %}
+<section class="fade-in" style="margin-top: 1.5rem;">
+    <a href="/#markets" class="nav-link" style="display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 1.5rem;">
+        <i class="fa-solid fa-arrow-right"></i> بازگشت به بازارها
+    </a>
+
+    {% if not price %}
+    <div class="empty-state">
+        <i class="fa-solid fa-circle-question" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <h3>دارایی «{{ symbol }}» یافت نشد</h3>
+        <p>ممکن است این نماد پشتیبانی نشود یا داده‌ای در دسترس نباشد.</p>
+    </div>
+    {% else %}
+
+    <!-- Header card -->
+    <div class="glass-card coin-header">
+        <div class="asset-cell" style="gap: 1rem;">
+            <img src="{% if price.image_url %}{{ price.image_url }}{% else %}https://ui-avatars.com/api/?name={{ price.symbol }}&background=random&color=fff&rounded=true&bold=true{% endif %}"
+                 alt="{{ price.name }}" class="asset-logo" style="width: 56px; height: 56px;" loading="lazy">
+            <div class="asset-info">
+                <span class="asset-name" style="font-size: 1.5rem;">{{ price.name }}</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.25rem;">
+                    <span class="asset-symbol" style="font-size: 0.95rem;">{{ price.symbol }}</span>
+                    {% if price.rank > 0 %}<span class="badge badge-crypto">#{{ price.rank }}</span>{% endif %}
+                    {% if price.type.value == 'crypto' %}<span class="badge badge-crypto">رمزارز</span>
+                    {% elif price.type.value == 'fiat' %}<span class="badge badge-fiat">ارز فیات</span>
+                    {% elif price.type.value == 'metal' %}<span class="badge badge-metal">فلزات</span>
+                    {% else %}<span class="badge badge-bourse">بورس</span>{% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="coin-price-block" dir="ltr">
+            <div class="coin-price-usd">${{ "{:,.4f}".format(price.price_usd) if price.price_usd > 0 and price.price_usd < 1 else "{:,.2f}".format(price.price_usd) }}</div>
+            {% if price.change_24h > 0 %}
+                <span class="change-positive"><i class="fa-solid fa-arrow-trend-up"></i> {{ "{:.2f}".format(price.change_24h) }}%</span>
+            {% elif price.change_24h < 0 %}
+                <span class="change-negative"><i class="fa-solid fa-arrow-trend-down"></i> {{ "{:.2f}".format(price.change_24h|abs) }}%</span>
+            {% else %}
+                <span class="text-muted">0.00%</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="coin-stats">
+        <div class="glass-card stat-box">
+            <span class="stat-box-label">قیمت تومانی</span>
+            <span class="stat-box-value">{% if price.price_toman > 0 %}{{ "{:,.0f}".format(price.price_toman) }} <small>تومان</small>{% else %}—{% endif %}</span>
+        </div>
+        <div class="glass-card stat-box">
+            <span class="stat-box-label">ارزش بازار</span>
+            <span class="stat-box-value" dir="ltr">{% if price.market_cap > 0 %}${{ price.market_cap | compact }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="glass-card stat-box">
+            <span class="stat-box-label">حجم معاملات (۲۴س)</span>
+            <span class="stat-box-value" dir="ltr">{% if price.volume_24h > 0 %}${{ price.volume_24h | compact }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="glass-card stat-box">
+            <span class="stat-box-label">رتبه بازار</span>
+            <span class="stat-box-value">{% if price.rank > 0 %}#{{ price.rank }}{% else %}—{% endif %}</span>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="glass-card" style="margin-top: 1.5rem;">
+        <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-chart-area" style="color: var(--accent-primary);"></i> نمودار قیمت</h2></div>
+        {% if price.type.value == 'crypto' and price.symbol not in ('USDT', 'USDC', 'DAI') %}
+        <div class="tradingview-widget-container" style="height: 480px;">
+            <div id="tv_chart" style="height: 100%;"></div>
+        </div>
+        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+        <script type="text/javascript">
+            new TradingView.widget({
+                "autosize": true,
+                "symbol": "BINANCE:{{ price.symbol }}USDT",
+                "interval": "D",
+                "timezone": "Asia/Tehran",
+                "theme": document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
+                "style": "1",
+                "locale": "fa",
+                "hide_side_toolbar": true,
+                "allow_symbol_change": false,
+                "container_id": "tv_chart"
+            });
+        </script>
+        {% elif price.sparkline %}
+        <div class="sparkline-cell spark-large" data-spark="{{ price.sparkline | join(',') }}" data-width="800" data-height="200"></div>
+        <p class="text-muted" style="text-align: center; margin-top: 0.75rem;">روند ۷ روز اخیر</p>
+        {% else %}
+        <p class="text-muted" style="text-align: center; padding: 2rem;">نمودار برای این دارایی در دسترس نیست.</p>
+        {% endif %}
+    </div>
+
+    <!-- Recent observations from our own history -->
+    {% if history %}
+    <div class="glass-card" style="margin-top: 1.5rem;">
+        <div class="card-header"><h2 class="card-title"><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-primary);"></i> آخرین مشاهدات</h2></div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>زمان (UTC)</th>
+                        <th>قیمت دلاری</th>
+                        <th>قیمت تومانی</th>
+                        <th>تغییر ۲۴س</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td dir="ltr" style="text-align: right;">{{ h.last_updated.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td dir="ltr" style="text-align: right;">${{ "{:,.4f}".format(h.price_usd) if h.price_usd > 0 and h.price_usd < 1 else "{:,.2f}".format(h.price_usd) }}</td>
+                        <td>{% if h.price_toman > 0 %}{{ "{:,.0f}".format(h.price_toman) }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% if h.change_24h > 0 %}<span class="change-positive">{{ "{:.2f}".format(h.change_24h) }}%</span>
+                            {% elif h.change_24h < 0 %}<span class="change-negative">{{ "{:.2f}".format(h.change_24h|abs) }}%</span>
+                            {% else %}<span class="text-muted">0.00%</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</section>
+{% endblock %}
