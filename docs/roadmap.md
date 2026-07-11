@@ -210,20 +210,18 @@ seams for future change, and recognize when a compromise is acceptable versus wh
 - **Technologies introduced:** CoinGecko Markets API, TradingView widgets, inline-SVG sparklines.
 - **Learning objectives:** multi-source data merging, graceful degradation, testable bot logic.
 
-### Version 10 - Trade actions, alerts & mobile *(Planned)*
-- **Features:** wire the dashboard buy/sell buttons to a real action; per-user price-alert
-  subscriptions pushed via the bot; portfolio tracking (buy price, quantity, P&L); a PWA /
-  mobile-ready front end.
-- **Architectural changes:** notification job in the bot layer atop the existing user model;
-  authentication (JWT) and CORS for external clients.
-- **Learning objectives:** stateful chatbot flows, background scheduling, cross-platform delivery.
+### Version 10 - Reliability, alerts & mobile *(Planned)*
+- **Features:** show data source/freshness, add per-user price alerts through the bot, and improve
+  the existing responsive dashboard for mobile use.
+- **Architectural changes:** a notification job in the bot layer atop the existing user model.
+- **Learning objectives:** background scheduling, resilient market data, cross-platform delivery.
 
 ---
 
 ## Planned Improvements
 
-and scheduled against the versions above: add CI and pre-commit
-hooks (TD-05, V6); support multiple football competitions (TD-06, post-V1); move synchronous `requests` to async `httpx` (TD-08, V6).
+Current work is limited to data reliability, price alerts, dashboard usability, and deployment.
+Portfolio tracking and authentication stay deferred until a real user need justifies them.
 
 ---
 

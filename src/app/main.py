@@ -21,7 +21,7 @@ from app.utils.logger import get_logger, setup_logging
 
 
 async def async_main() -> None:
-    """Entry point for the Crypto & World Cup Information Platform."""
+    """Entry point for the MarketPulse CLI."""
     console = Console()
 
     # 1. Load settings. Logging is not configured yet, so a ConfigError

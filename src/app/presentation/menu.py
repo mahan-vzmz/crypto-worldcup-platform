@@ -21,7 +21,7 @@ from app.utils.result import Ok
 logger = get_logger(__name__)
 
 _MENU = """\
-[bold]Crypto & World Cup Platform[/bold]
+[bold]MarketPulse[/bold]
 
   [cyan]1[/cyan]  All market prices
   [cyan]2[/cyan]  Single asset price

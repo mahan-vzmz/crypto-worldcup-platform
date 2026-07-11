@@ -29,10 +29,8 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="MarketPulse API",
-        description=(
-            "REST API for real-time market prices: crypto, fiat, metals, and stocks."
-        ),
-        version="1.0.0",
+        description=("REST API for crypto, fiat, metal, and global stock prices."),
+        version="9.0.0",
         lifespan=lifespan,
     )
 

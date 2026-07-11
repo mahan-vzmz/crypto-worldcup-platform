@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/mahan-vzmz/crypto-worldcup-platform/actions/workflows/ci.yml)
 
-پلتفرم جامع، real-time و تمام‌async برای رصد قیمت لحظه‌ای بازارهای مالی — رمزارز، ارزهای فیات، فلزات گرانبها، بورس جهانی و بورس ایران — با وب داشبورد، بات تلگرام و CLI.
+پلتفرم تمام‌async برای رصد قیمت بازارهای مالی — رمزارز، ارزهای فیات، فلزات گرانبها و بورس جهانی — با وب داشبورد، بات تلگرام و CLI.
 
 **Offline-first و anti-fragile:** هر فراخوانی خارجی با TTL کش می‌شود. اگر API در دسترس نباشد، آخرین داده‌ی معتبر سرو می‌شود — نه crash.
 
@@ -17,7 +17,6 @@
   - 💵 ارزهای فیات — EUR، GBP (محاسبه‌شده از نرخ USD/تومان Wallex)
   - 🥇 فلزات — XAUT (طلا tokenized)، PAXG از Wallex
   - 📈 بورس جهانی — NVDA، AAPL، MSFT، S&P 500، NASDAQ، Dow Jones از Yahoo Finance
-  - 🇮🇷 بورس ایران — شستا، فولاد، فملی، خودرو، سایپا و بیشتر از TSETMC CDN API
 - **TTL caching** — داده در DB ذخیره، درخواست‌های تکراری بدون شبکه پاسخ می‌گیرند
 - **Offline fallback** — در صورت قطعی API، آخرین کش معتبر با هشدار سرو می‌شود
 
@@ -31,9 +30,9 @@
         [ FastAPI REST API (ASGI) ]
                         |
           [ لایه‌ی سرویس (CryptoService) ]
-                /    |    |     \
-  CryptoClient  FiatClient  BourseClient  IranBourseClient
-   (Wallex)   (ExchangeRate)  (Yahoo)    (TSETMC CDN)
+               /       |        |        \
+ MarketDataClient CryptoClient FiatClient BourseClient
+    (CoinGecko)      (Wallex)  (ExchangeRate) (Yahoo)
                         |
     [ SQLAlchemy (SQLite dev / PostgreSQL prod) ]
 
@@ -73,11 +72,6 @@
 | `api.exchangerate-api.com` | نرخ یورو/پوند |
 | `query1.finance.yahoo.com` | سهام و شاخص‌های بورس جهانی |
 
-> **Claude Code on the web:** محیط را ویرایش کنید، **Network access** را روی
-> **Custom** بگذارید و این دامنه‌ها را در **Allowed domains** اضافه کنید
-> (یا سطح **Full** را انتخاب کنید). سپس یک سشن جدید باز کنید.
-> راهنما: <https://code.claude.com/docs/en/claude-code-on-the-web#allow-specific-domains>
->
 > اگر دسترسی نباشد، اپ crash نمی‌کند: آخرین داده‌ی کش‌شده سرو می‌شود و در نبود
 > کش، صفحه با پیام «داده‌ای یافت نشد» نمایش داده می‌شود.
 
@@ -152,7 +146,7 @@ cp .env.example .env             # برای بات: TELEGRAM_BOT_TOKEN را پر
 ruff check .            # lint — انتظار: All checks passed!
 ruff format --check .   # فرمت — انتظار: ... files already formatted
 mypy --strict src       # نوع — انتظار: Success: no issues found
-pytest -q               # تست — انتظار: 62 passed
+pytest -q               # تست — انتظار: 64 passed
 ```
 
 ### ۲. تست وب داشبورد
@@ -200,7 +194,7 @@ src/app/
   config/              # Settings (frozen dataclass, env-driven) + DI Container
   models/              # CryptoPrice dataclass + AssetType enum
   services/            # CryptoService: cache-then-fetch + offline fallback
-  clients/             # httpx adapters: Wallex, FiatClient, Yahoo, TSETMC
+  clients/             # httpx adapters: CoinGecko, Wallex, ExchangeRate, Yahoo
   storage/             # SQLAlchemy repository (SQLite/PostgreSQL)
   presentation/        # rich CLI renderers + menu
   templates/           # Jinja2 HTML templates

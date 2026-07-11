@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crypto-worldcup-platform"
-version = "1.0.0"
-description = "A clean architecture Python CLI platform for Crypto and Football data"
+version = "9.0.0"
+description = "Market dashboard and Telegram bot for crypto and global asset prices"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [

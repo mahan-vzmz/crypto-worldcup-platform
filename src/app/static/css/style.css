@@ -477,38 +477,6 @@ tr:last-child td {
   color: var(--accent-secondary);
 }
 
-/* Actions in Table */
-.trade-actions {
-  display: flex;
-  gap: 0.5rem;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-tr:hover .trade-actions {
-  opacity: 1;
-}
-
-.btn-trade {
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-}
-
-.btn-trade.buy {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
-}
-
-.btn-trade.buy:hover {
-  background: var(--success);
-  color: #fff;
-}
-
 /* Features Section */
 .features-section {
   padding: 4rem 0;

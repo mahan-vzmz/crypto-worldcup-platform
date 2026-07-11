@@ -10,7 +10,6 @@
             <th class="sortable hide-md" data-sort="mcap">ارزش بازار</th>
             <th class="sortable hide-md" data-sort="vol">حجم (۲۴س)</th>
             <th class="text-center hide-sm">نمودار ۷ روز</th>
-            <th class="text-center">عملیات</th>
         </tr>
     </thead>
     <tbody id="market-tbody">
@@ -69,12 +68,6 @@
                 {% if price.volume_24h > 0 %}${{ price.volume_24h | compact }}{% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             <td class="sparkline-cell hide-sm text-center" data-spark="{{ price.sparkline | join(',') }}"></td>
-            <td class="text-center">
-                <div class="trade-actions" style="justify-content: center;">
-                    <button class="btn-trade buy" onclick="alert('خرید {{ price.name }}')">خرید</button>
-                    <button class="btn-trade" onclick="alert('فروش {{ price.name }}')">فروش</button>
-                </div>
-            </td>
         </tr>
         {% endfor %}
     </tbody>

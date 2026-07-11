@@ -9,7 +9,7 @@
 
 **Last updated:** v9 — swapwallet-style coin list, group-ready Telegram bot,
 Persian names, and a coin detail page.
-**Active branch:** `feature/swapwallet-coin-list`.
+**Active branch:** `main`.
 
 ---
 
@@ -36,7 +36,7 @@ with a TTL, and a downed API serves the last good cache instead of crashing.
 | Telegram bot | ✅ `/market`, `/price` (+ `/p`), `/watchlist`, inline query, daily brief; **group-ready**: mention/reply/free-text answers, join-greeting, command menu |
 | Data sources | ✅ CoinGecko (global crypto), Wallex (Toman + metals + Persian names), ExchangeRate (EUR/GBP), Yahoo (stocks/indices) |
 | Storage | ✅ SQLAlchemy async (SQLite dev / PostgreSQL prod), TTL cache + offline fallback, price history |
-| Quality gates | ✅ `ruff check` + `ruff format --check` + `mypy --strict src` + `pytest` — **62 tests green** |
+| Quality gates | ✅ `ruff check` + `ruff format --check` + `mypy --strict src` + `pytest` — **64 tests green** |
 
 ### Data-source merge (the heart of the service)
 `CryptoService.get_prices()` builds the crypto list from **CoinGecko** (rich
@@ -92,8 +92,7 @@ add those domains (see README).
 
 ## 5. Where to pick up next
 
-- **Item 4 (deferred):** wire the dashboard "خرید/فروش" buttons to a real action
-  (currently a placeholder `alert`).
+- Keep the dashboard price-focused; it is a market monitor, not an exchange.
 - **Persian names on the web** currently rely on the coin existing on Wallex;
   consider a small static alias map for popular coins not listed there.
 - **Price alerts / portfolio** (roadmap v10): per-user threshold subscriptions
@@ -105,6 +104,6 @@ add those domains (see README).
 
 1. Read `architecture.md`, then this file, then `roadmap.md`.
 2. Create a **Python 3.12** venv and `pip install -e ".[dev]"`.
-3. Run the gates — expect **62 tests** green.
+3. Run the gates — expect **64 tests** green.
 4. Launch a channel (`crypto-wc-api` / `crypto-wc-bot` / `crypto-wc`).
-5. Work on `feature/swapwallet-coin-list`; Conventional Commits; PR.
+5. Create a focused feature branch for the next change; Conventional Commits; PR.
